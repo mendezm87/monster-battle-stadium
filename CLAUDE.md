@@ -8,6 +8,10 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 - Playable claude.ai artifact (private to the owner): https://claude.ai/artifact/WCtXTByw25XMPjxCvRBfk8. It's published from a copy of `index.html` with only the body content, plus `css/` and `js/` as supporting files.
 - GitHub Pages (once the owner enables it from that branch's root): https://mendezm87.github.io/monster-battle-stadium/
 
+## Workflow
+
+- **Always push after committing** unless the owner says otherwise for that piece of work; no need to ask first, since changes can be rolled back.
+
 ## Decisions already made (keep these)
 
 - **Original IP only.** Monsters, names and sprites are original designs, never Pokémon or Nintendo assets.
