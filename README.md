@@ -34,7 +34,7 @@ Moves auto-aim at your opponent; the skill is in positioning and dodging.
 - CPU opponent with 3 difficulties (dodges projectiles, beams and telegraphed zones; picks matchups when switching)
 - 3 stages: Snowy Summit, Ember Crater, Verdant Meadow — procedurally textured with weather
 - Battle HUD: portraits, type/status/item tags, HP bars with damage trail, team balls, timer, move callouts, damage numbers, "FAINTED!" banners
-- Synthesised sound effects (WebAudio)
+- Original Game Boy-style battle music and synthesised sound effects, including charged beam blasts (WebAudio, no audio files)
 
 ## Code layout
 

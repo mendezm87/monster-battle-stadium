@@ -142,6 +142,7 @@ function startBattle() {
   UI.hudCache = {};
   UI.closeSwap();
   Input.reset();
+  Sfx.init(); Sfx.resume(); Sfx.music.start();
   App.paused = false;
   App.battle = new Battle({ playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI });
   UI.buildMoveButtons(App.battle.P);
@@ -149,6 +150,7 @@ function startBattle() {
 
 function leaveBattle(to) {
   App.battle = null; App.paused = false;
+  Sfx.resume(); Sfx.music.stop();
   UI.setBattleChrome(false);
   if (to === 'team') openTeamSelect(); else UI.show('title');
 }
@@ -158,7 +160,7 @@ function togglePause() {
   if (!b || b.state === 'over' || b.state === 'pick') return;
   App.paused = !App.paused;
   Input.reset();
-  if (App.paused) UI.show('pause'); else UI.hideScreens();
+  if (App.paused) { UI.show('pause'); Sfx.pause(); } else { UI.hideScreens(); Sfx.resume(); }
 }
 Input.onPause = togglePause;
 

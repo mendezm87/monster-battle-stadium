@@ -302,7 +302,8 @@ class Battle {
 
   end(result) {
     this.state = 'over';
-    Sfx.play(result === 'win' ? 'win' : 'lose');
+    Sfx.music.stop(0.6);
+    setTimeout(() => Sfx.play(result === 'win' ? 'win' : 'lose'), 500);
     const dealt = this.p.reduce((s, m) => s + m.dmgDealt, 0);
     this.ui.onEnd({ result, time: this.clock, kos: this.kos.player, lost: this.kos.enemy, dealt });
   }
@@ -351,7 +352,7 @@ class Battle {
       }
       case 'beam':
         m.action = { kind: 'beam', t: 0, mv, dir, lock: true, phase: 'charge', tick: 0, id: _uid++ };
-        Sfx.play('charge');
+        Sfx.beamCharge(mv.charge);
         break;
       case 'dash':
         m.action = { kind: 'dash', t: 0, mv, dir, lock: true, hit: false };
@@ -582,7 +583,7 @@ class Battle {
             const ox = m.x + Math.cos(a.dir) * 8, oy = m.cy + Math.sin(a.dir) * 8;
             this.particles.push({ x: ox + Math.cos(ang) * rr, y: oy + Math.sin(ang) * rr, vx: -Math.cos(ang) * rr * 3, vy: -Math.sin(ang) * rr * 3, life: 0.3, max: 0.3, size: 2, color: fx[Math.random() < 0.5 ? 1 : 2], kind: 'sq' });
           }
-          if (a.t >= mv.charge) { a.phase = 'fire'; a.t = 0; Sfx.play('beam'); this.addShake(3); }
+          if (a.t >= mv.charge) { a.phase = 'fire'; a.t = 0; Sfx.beamFire(mv.dur, mv.type); this.addShake(5); }
         } else {
           a.tick -= dt;
           if (a.tick <= 0) {
