@@ -19,6 +19,7 @@ python3 -m http.server 8000
 | --- | --- | --- |
 | Move | WASD / arrow keys | Left thumb-stick (appears where you touch) |
 | Moves 1–4 | J K L ; (or 1–4, Space = move 1) | Move buttons (bottom right) |
+| Swap monster | Q or Tab (next healthy teammate) | SWAP button, then tap a teammate |
 | Pause | P / Esc | Pause button |
 | Mute | M | Title screen toggle |
 

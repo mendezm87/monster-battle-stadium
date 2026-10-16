@@ -6,13 +6,14 @@ const Input = (() => {
   const held = [false, false, false, false];
   const btnHeld = [false, false, false, false];
   const MOVE_KEYS = [['KeyJ', 'Digit1', 'Space'], ['KeyK', 'Digit2'], ['KeyL', 'Digit3'], ['Semicolon', 'Digit4', 'KeyI']];
-  let onPause = null, onMute = null;
+  let onPause = null, onMute = null, onSwap = null;
 
   window.addEventListener('keydown', e => {
     if (e.repeat) return;
     keys[e.code] = true;
     if ((e.code === 'Escape' || e.code === 'KeyP') && onPause) onPause();
     if (e.code === 'KeyM' && onMute) onMute();
+    if ((e.code === 'KeyQ' || e.code === 'Tab') && onSwap) { e.preventDefault(); onSwap(); }
     if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     document.body.classList.add('no-touch');
   });
@@ -69,7 +70,7 @@ const Input = (() => {
 
   return {
     bindStick, bindMoveButton,
-    set onPause(f) { onPause = f; }, set onMute(f) { onMute = f; },
+    set onPause(f) { onPause = f; }, set onMute(f) { onMute = f; }, set onSwap(f) { onSwap = f; },
     dir() {
       let x = stick.x, y = stick.y;
       if (keys.KeyA || keys.ArrowLeft) x -= 1;

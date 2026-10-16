@@ -156,7 +156,7 @@ const ROSTER = [
 const ROSTER_BY_ID = Object.fromEntries(ROSTER.map(m => [m.id, m]));
 
 const DIFFICULTY = {
-  easy:   { think: 0.38, dodge: 0.25, aggro: 0.45, react: 0.55, aimErr: 0.28, lead: false },
-  normal: { think: 0.22, dodge: 0.55, aggro: 0.7,  react: 0.3,  aimErr: 0.1,  lead: false },
-  hard:   { think: 0.12, dodge: 0.85, aggro: 0.92, react: 0.12, aimErr: 0.0,  lead: true },
+  easy:   { think: 0.38, dodge: 0.25, aggro: 0.45, react: 0.55, aimErr: 0.28, lead: false, swap: 0 },
+  normal: { think: 0.22, dodge: 0.55, aggro: 0.7,  react: 0.3,  aimErr: 0.1,  lead: false, swap: 1 },
+  hard:   { think: 0.12, dodge: 0.85, aggro: 0.92, react: 0.12, aimErr: 0.0,  lead: true, swap: 1.5 },
 };

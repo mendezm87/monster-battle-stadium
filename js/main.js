@@ -140,6 +140,7 @@ function startBattle() {
   UI.hideScreens();
   UI.setBattleChrome(true);
   UI.hudCache = {};
+  UI.closeSwap();
   Input.reset();
   App.paused = false;
   App.battle = new Battle({ playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI });
@@ -160,6 +161,17 @@ function togglePause() {
   if (App.paused) UI.show('pause'); else UI.hideScreens();
 }
 Input.onPause = togglePause;
+
+// Q / Tab: instant swap to the next healthy teammate (no pause)
+Input.onSwap = () => {
+  const b = App.battle;
+  if (!b || App.paused) return;
+  for (let k = 1; k < b.p.length; k++) {
+    const i = (b.pi + k) % b.p.length;
+    if (b.canSwap('player', i)) { b.swap('player', i); Sfx.play('ball'); return; }
+  }
+};
+$('#btn-swap').addEventListener('pointerdown', e => { e.preventDefault(); UI.toggleSwap(App.battle); });
 $('#btn-pause').onclick = togglePause;
 $('#btn-resume').onclick = togglePause;
 $('#btn-quit').onclick = () => { Sfx.play('back'); leaveBattle('title'); };

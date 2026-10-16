@@ -45,13 +45,14 @@ class Mon {
     this.prefRange = melee > ranged ? 45 : melee === ranged ? 85 : 125;
     this.fainted = false;
     this.dmgDealt = 0;
+    this.status = null; this.statusT = 0; this.statusTick = 0;
     this.reset();
   }
   reset() {
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.kx = 0; this.ky = 0;
     this.face = 1; this.walkT = 0;
     this.cd = [0, 0, 0, 0]; this.gcd = 0;
-    this.status = null; this.statusT = 0; this.statusTick = 0; this.slowT = 0;
+    this.slowT = 0;          // status (PAR/BRN/FRZ) deliberately survives a swap
     this.buffs = []; this.action = null; this.stunT = 0;
     this.flash = 0; this.invuln = 0; this.visible = false; this.ghosts = []; this.ghostT = 0;
     this.fadeT = 0;
@@ -109,6 +110,14 @@ class AI {
     const mm = Math.hypot(mx, my);
     this.dir = mm > 0.05 ? { x: mx / mm, y: my / mm } : { x: 0, y: 0 };
 
+    if (this.d.swap && me.visible && b.swapCd.enemy <= 0 && Math.random() < this.d.swap * 0.04) {
+      const theirBest = Math.max(...foe.moves.map(mv => mv.power ? typeEffect(mv.type, me.def.types) : 0));
+      const myBest = Math.max(...me.moves.map(mv => mv.power ? typeEffect(mv.type, foe.def.types) : 0));
+      if (me.hp / me.maxHp < 0.25 || (theirBest >= 2 && myBest <= 1)) {
+        const next = b.chooseEnemyNext(b.ei);
+        if (next >= 0 && b.swap('enemy', next)) { this.reset(); return; }
+      }
+    }
     if (this.want < 0 && me.canAct() && Math.random() < this.d.aggro) {
       const i = this.pick(me, foe, d);
       if (i >= 0) { this.want = i; this.delay = this.d.react * Math.random(); }
@@ -195,6 +204,7 @@ class Battle {
     this.state = 'intro'; this.stateT = 0; this.time = 0; this.clock = 0;
     this.shake = 0; this.hitstop = 0;
     this.kos = { player: 0, enemy: 0 };
+    this.swapCd = { player: 0, enemy: 0 };
     ui.banner('BATTLE!');
     Sfx.play('ball');
   }
@@ -204,10 +214,11 @@ class Battle {
   foe(m) { return m.side === 'player' ? this.E : this.P; }
 
   // ---------------------------------------------------------- flow
-  sendOut(side) {
+  sendOut(side, at) {
     const m = side === 'player' ? this.P : this.E;
     m.reset();
-    m.x = SPAWN_POS[side].x; m.y = SPAWN_POS[side].y;
+    const pos = at || SPAWN_POS[side];
+    m.x = clamp(pos.x, FIELD.x0 + m.r, FIELD.x1 - m.r); m.y = clamp(pos.y, FIELD.y0 + m.r, FIELD.y1 - 2);
     m.face = side === 'player' ? 1 : -1;
     if (side === 'enemy') this.ai.reset();
     this.balls.push({ side, from: TRAINER_POS[side], to: { x: m.x, y: m.y - 6 }, t: 0, dur: 0.55 });
@@ -219,6 +230,32 @@ class Battle {
     this.state = 'sendout'; this.stateT = 0;
     if (pl) this.sendOut('player');
     if (en) this.sendOut('enemy');
+  }
+
+  // Mid-fight swap: the fight keeps running while the new monster is thrown in,
+  // so the swapping side is briefly open to attack.
+  canSwap(side, idx) {
+    const team = side === 'player' ? this.p : this.e;
+    const cur = side === 'player' ? this.pi : this.ei;
+    return this.state === 'fight' && this.swapCd[side] <= 0 && idx !== cur && team[idx] && !team[idx].fainted &&
+      !this.balls.some(b => b.side === side);
+  }
+
+  swap(side, idx) {
+    if (!this.canSwap(side, idx)) return false;
+    const out = side === 'player' ? this.P : this.E;
+    const at = { x: out.x, y: out.y };
+    out.action = null; out.visible = false; out.ghosts = [];
+    const tp = TRAINER_POS[side];
+    this.particles.push({ x: tp.x, y: tp.y - 14, x2: out.x, y2: out.cy, life: 0.3, max: 0.3, color: '#ff5a4a', kind: 'line' });
+    this.particles.push({ x: out.x, y: out.y - 4, r0: 22, r1: 2, life: 0.3, max: 0.3, color: '#ffffff', kind: 'ring', w: 3 });
+    this.burst(out.x, out.cy, ['#ff5a4a', '#ffffff'], 14, 60);
+    if (side === 'player') this.pi = idx; else this.ei = idx;
+    this.swapCd[side] = 8;
+    const inc = side === 'player' ? this.P : this.E;
+    this.ui.callout(side, `Go, ${inc.def.name}`, inc.def.types[0]);
+    this.sendOut(side, at);
+    return true;
   }
 
   faint(m) {
@@ -241,7 +278,7 @@ class Battle {
       return;
     }
     const needE = this.E.fainted, needP = this.P.fainted;
-    if (needE) this.ei = this.chooseEnemyNext();
+    if (needE) this.ei = this.chooseEnemyNext(-1);
     if (needP) {
       this.state = 'pick'; this.pendingE = needE;
       this.ui.pickNext(this.p, idx => { this.pi = idx; this.startSendouts(true, this.pendingE); });
@@ -250,11 +287,11 @@ class Battle {
     }
   }
 
-  chooseEnemyNext() {
+  chooseEnemyNext(exclude) {
     const foe = this.P;
     let best = -1, bestScore = -Infinity;
     this.e.forEach((m, i) => {
-      if (m.fainted) return;
+      if (m.fainted || i === exclude) return;
       const off = Math.max(...m.moves.map(mv => mv.power ? typeEffect(mv.type, foe.def.types) : 0));
       const def = Math.max(...foe.moves.map(mv => mv.power ? typeEffect(mv.type, m.def.types) : 0));
       const s = off - def * 0.6 + Math.random() * 0.5;
@@ -433,6 +470,7 @@ class Battle {
         break;
       case 'fight': {
         this.clock += dt;
+        this.swapCd.player -= dt; this.swapCd.enemy -= dt;
         const P = this.P, E = this.E;
         const aiDir = this.ai.update(dt, E, P, this);
         this.updateMon(P, dt, E, Input.dir());
@@ -1035,6 +1073,10 @@ class Battle {
           ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.7, 0, 0, TAU); ctx.stroke();
           break;
         }
+        case 'line':
+          ctx.strokeStyle = p.color; ctx.lineWidth = 3 * k + 0.5;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x2, p.y2); ctx.stroke();
+          break;
         case 'bolt': {
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
           const r2 = mulberry((p.seed * 1e6) | 0);

@@ -39,8 +39,42 @@ const UI = {
   },
 
   onSendOut(side, mon) {
-    if (side === 'player') this.buildMoveButtons(mon);
+    if (side === 'player') { this.buildMoveButtons(mon); this.closeSwap(); }
     this.hudCache = {};
+  },
+
+  // ---------------- swap tray (does not pause the fight) ----------------
+  swapOpen: false,
+  toggleSwap(battle) {
+    if (this.swapOpen) { this.closeSwap(); return; }
+    if (!battle || battle.state !== 'fight') return;
+    const tray = $('#swap-tray');
+    tray.innerHTML = '';
+    this.swapChips = battle.p.map((m, i) => {
+      if (i === battle.pi) return null;
+      const chip = document.createElement('div');
+      chip.className = 'swap-chip';
+      const cv = document.createElement('canvas'); cv.width = 48; cv.height = 48;
+      drawPortrait(cv, m.id, { fainted: m.fainted });
+      chip.appendChild(cv);
+      chip.insertAdjacentHTML('beforeend', '<div class="mini"><div></div></div>');
+      chip.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        if (battle.swap('player', i)) Sfx.play('ball');
+        this.closeSwap();
+      });
+      tray.appendChild(chip);
+      return { el: chip, bar: chip.querySelector('.mini div'), mon: m, i };
+    }).filter(Boolean);
+    this.swapOpen = true;
+    tray.classList.remove('hidden');
+    $('#btn-swap').classList.add('open');
+    Sfx.play('select');
+  },
+  closeSwap() {
+    this.swapOpen = false;
+    $('#swap-tray').classList.add('hidden');
+    $('#btn-swap').classList.remove('open');
   },
 
   pickNext(team, cb) {
@@ -96,6 +130,17 @@ const UI = {
     const t = Math.floor(battle.clock);
     const ts = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
     if (this.hudCache.time !== ts) { $('#timer').textContent = ts; this.hudCache.time = ts; }
+    const scd = Math.max(0, battle.swapCd.player);
+    $('#btn-swap .cd').style.height = (scd / 8 * 100) + '%';
+    if (this.swapOpen) {
+      if (battle.state !== 'fight') this.closeSwap();
+      else for (const c of this.swapChips) {
+        const pct = c.mon.hp / c.mon.maxHp;
+        c.bar.style.width = (pct * 100) + '%';
+        c.bar.style.background = pct > 0.5 ? 'var(--hp-hi)' : pct > 0.2 ? 'var(--hp-mid)' : 'var(--hp-lo)';
+        c.el.classList.toggle('off', !battle.canSwap('player', c.i));
+      }
+    }
     if (this.moveBtns) {
       const m = battle.P;
       this.moveBtns.forEach((b, i) => {
