@@ -111,8 +111,9 @@ const Sfx = (() => {
     const wob = ctx.createOscillator(), wg = ctx.createGain();
     wob.frequency.value = 14; wg.gain.value = 900;
     wob.connect(wg).connect(rf.frequency);
-    rg.gain.setValueAtTime(0.001, t); rg.gain.exponentialRampToValueAtTime(0.32, t + 0.03);
-    rg.gain.setValueAtTime(0.3, end); rg.gain.exponentialRampToValueAtTime(0.001, end + 0.3);
+    const roar = BEAM_LAYERS[type] ? 0.22 : 0.32;   // typed beams let their flavour layer through
+    rg.gain.setValueAtTime(0.001, t); rg.gain.exponentialRampToValueAtTime(roar, t + 0.03);
+    rg.gain.setValueAtTime(roar * 0.94, end); rg.gain.exponentialRampToValueAtTime(0.001, end + 0.3);
     rf.connect(rg).connect(master);
     const voices = [['sawtooth', base, 0], ['sawtooth', base * 1.012, 0], ['square', base * 2, 0], ['sawtooth', base * 1.5, -0.4]];
     const oscs = voices.map(([ty, fr]) => {
@@ -125,7 +126,121 @@ const Sfx = (() => {
     // shimmer: a fast high arpeggio riding on top
     const arp = [4, 4 * 1.26, 4 * 1.5, 8].map(m => base * m * 2);
     for (let i = 0, at = 0; at < dur; i++, at += 0.045) tone(arp[i % 4], 0.04, 'square', 0.035, 0, at);
+    // type flavour layered over the base (Normal is the base sound alone)
+    if (BEAM_LAYERS[type]) {
+      bus = ctx.createGain(); bus.gain.value = LAYER_GAIN[type] || 1; bus.connect(master);
+      BEAM_LAYERS[type](t, dur, base);
+      bus = null;
+    }
   }
+
+  // ---------- per-type beam layers ----------
+  // Layers play through `bus`, a gain whose level is balanced per type so each
+  // flavour sits clearly under the base roar (sparse clicky layers need more gain).
+  let bus = null;
+  const LAYER_GAIN = { fire: 7, water: 4.5, ice: 5, electric: 2, psychic: 2, dragon: 1.4, dark: 0.9, grass: 2.6, ground: 1, rock: 7, fighting: 2.6 };
+  // short filtered noise hit at absolute time t
+  function hiss(t, len, vol, ftype, freq, q = 1) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; s.loop = true;
+    f.type = ftype; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+    s.connect(f).connect(g).connect(bus);
+    s.start(t, Math.random() * 0.5); s.stop(t + len + 0.02);
+    return { f, g };
+  }
+  // pitched blip gliding f1 -> f2 at absolute time t
+  function blip(t, f1, f2, len, type, vol) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + len);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+    o.connect(g).connect(bus); o.start(t); o.stop(t + len + 0.02);
+    return o;
+  }
+  // a held voice from t to t+dur with a short fade-out; returns the oscillator and gain
+  function drone(t, dur, type, freq, vol, filterFreq) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.04);
+    g.gain.setValueAtTime(vol, t + dur); g.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.25);
+    let node = o;
+    if (filterFreq) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filterFreq; node = o.connect(f); }
+    node.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.3);
+    return { o, g };
+  }
+  function lfo(t, dur, rate, depth, target, type = 'sine') {
+    const l = ctx.createOscillator(), lg = ctx.createGain();
+    l.type = type; l.frequency.value = rate; lg.gain.value = depth;
+    l.connect(lg).connect(target); l.start(t); l.stop(t + dur + 0.3);
+  }
+  const every = (dur, gap, fn) => { for (let at = 0; at < dur; at += gap * (0.6 + Math.random() * 0.8)) fn(at); };
+
+  const BEAM_LAYERS = {
+    // crackling flames over a low furnace rumble
+    fire(t, dur) {
+      hiss(t, dur + 0.25, 0.18, 'lowpass', 220);
+      every(dur, 0.03, at => hiss(t + at, 0.02 + Math.random() * 0.02, 0.28, 'bandpass', 1800 + Math.random() * 3500, 4));
+    },
+    // rushing torrent + bubbles popping upward
+    water(t, dur) {
+      const { f } = hiss(t, dur + 0.25, 0.2, 'bandpass', 900, 2);
+      f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(1600, t + dur / 2); f.frequency.linearRampToValueAtTime(600, t + dur);
+      every(dur, 0.04, at => { const p = 300 + Math.random() * 600; blip(t + at, p, p * 2.2, 0.05, 'sine', 0.14); });
+    },
+    // mains buzz chopped hard + random arcing zaps
+    electric(t, dur, base) {
+      const { g } = drone(t, dur, 'square', base * 4, 0.07);
+      lfo(t, dur, 32, 0.07, g.gain, 'square');
+      every(dur, 0.06, at => blip(t + at, 2500 + Math.random() * 2500, 150, 0.05, 'square', 0.08));
+    },
+    // glassy air + crystal chimes from a high pentatonic
+    ice(t, dur) {
+      hiss(t, dur + 0.25, 0.06, 'highpass', 7000);
+      const notes = [1319, 1568, 1760, 1976, 2349, 2637];
+      every(dur, 0.06, at => blip(t + at, notes[(Math.random() * notes.length) | 0], 2637 * 1.5, 0.18, 'sine', 0.07));
+    },
+    // eerie gliding sine + a deeply warbling overtone
+    psychic(t, dur, base) {
+      const a = drone(t, dur, 'sine', 600, 0.09);
+      a.o.frequency.setValueAtTime(400, t); a.o.frequency.linearRampToValueAtTime(1200, t + dur * 0.6); a.o.frequency.linearRampToValueAtTime(500, t + dur);
+      lfo(t, dur, 3, 80, a.o.frequency);
+      const b = drone(t, dur, 'triangle', base * 3, 0.1);
+      lfo(t, dur, 5, base * 3 * 0.15, b.o.frequency);
+    },
+    // sub-octave growl with a throaty tremolo + falling roar
+    dragon(t, dur, base) {
+      const g = drone(t, dur, 'sawtooth', base / 2, 0.22, 600);
+      lfo(t, dur, 22, 0.15, g.g.gain);
+      blip(t, 320, 120, dur + 0.2, 'sawtooth', 0.08);
+    },
+    // dissonant beating drone + a descending whole-tone line
+    dark(t, dur, base) {
+      drone(t, dur, 'sine', base / 2, 0.2);
+      drone(t, dur, 'sine', base / 2 * 1.06, 0.2);
+      let f = 700;
+      for (let at = 0; at < dur; at += 0.1) { blip(t + at, f, f * 0.97, 0.09, 'square', 0.05); f *= 0.89; }
+    },
+    // fluttering leaves rustle + soft wooden chimes
+    grass(t, dur) {
+      const { g } = hiss(t, dur + 0.25, 0.15, 'highpass', 3000);
+      lfo(t, dur, 18, 0.12, g.gain);
+      every(dur, 0.08, at => blip(t + at, 1000 + Math.random() * 1000, 900, 0.08, 'triangle', 0.06));
+    },
+    // deep earth rumble
+    ground(t, dur) {
+      hiss(t, dur + 0.3, 0.35, 'lowpass', 120);
+      drone(t, dur, 'sine', 40, 0.25);
+    },
+    // grinding crunches
+    rock(t, dur) {
+      every(dur, 0.05, at => hiss(t + at, 0.04, 0.28, 'lowpass', 600 + Math.random() * 600));
+    },
+    // rhythmic body blows
+    fighting(t, dur) {
+      for (let at = 0; at < dur; at += 0.12) blip(t + at, 180, 55, 0.1, 'sine', 0.3);
+    },
+  };
 
   // ---------- battle music: original Game Boy-style chiptune ----------
   // 172 BPM, E minor. Pulse lead, 12.5% pulse arpeggios, triangle bass, noise drums.
@@ -289,7 +404,7 @@ const Sfx = (() => {
       ctx = off; master = off.createGain(); master.gain.value = 0.3; master.connect(off.destination);
       noiseBuf = off.createBuffer(1, off.sampleRate, off.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      try { fn({ tone, beamCharge, beamFire, Music }); } finally { [ctx, master, noiseBuf] = saved; }
+      try { fn({ tone, beamCharge, beamFire, Music, BEAM_LAYERS }); } finally { [ctx, master, noiseBuf] = saved; }
     },
   };
 })();
