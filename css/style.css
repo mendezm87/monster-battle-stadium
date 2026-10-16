@@ -63,6 +63,7 @@ html, body {
 .tag.status.par { background: #d6b21e; }
 .tag.status.brn { background: #e0582a; }
 .tag.status.frz { background: #4fb6d8; }
+.tag.status.psn { background: #9a3ab8; }
 
 .hpbar { position: relative; align-self: stretch; height: 4.6cqw; border: 0.6cqw solid var(--ink); border-radius: 1cqw;
   background: #2a2638; overflow: hidden; }
@@ -113,17 +114,24 @@ html, body {
   100% { transform: translateX(-110%) skewX(-8deg); opacity: 0; } }
 
 /* ---------- Controls ---------- */
-#controls { position: absolute; left: 0; right: 0; bottom: 0; height: 30cqh; pointer-events: none; }
-#stick-zone { position: absolute; left: 0; bottom: 0; width: 55%; height: 100%; pointer-events: auto; }
-#stick { position: absolute; width: 26cqw; height: 26cqw; border-radius: 50%; left: 6cqw; bottom: 6cqw;
+#controls, #controls2 { position: absolute; left: 0; right: 0; bottom: 0; height: 30cqh; pointer-events: none; }
+/* player 2 sits across the table on touch screens: their panel is the top band, upside down */
+#controls2 { bottom: auto; top: 0; transform: rotate(180deg); }
+body.no-touch #controls2 { transform: none; top: auto; bottom: 0; }
+#stick-zone, #stick-zone2 { position: absolute; left: 0; bottom: 0; width: 55%; height: 100%; pointer-events: auto; }
+#stick, #stick2 { position: absolute; width: 26cqw; height: 26cqw; border-radius: 50%; left: 6cqw; bottom: 6cqw;
   background: rgba(255,255,255,.08); border: 0.6cqw solid rgba(255,255,255,.25); }
-#knob { position: absolute; left: 50%; top: 50%; width: 11cqw; height: 11cqw; margin: -5.5cqw 0 0 -5.5cqw;
+#knob, #knob2 { position: absolute; left: 50%; top: 50%; width: 11cqw; height: 11cqw; margin: -5.5cqw 0 0 -5.5cqw;
   border-radius: 50%; background: rgba(255,255,255,.35); border: 0.6cqw solid rgba(255,255,255,.6); }
-body.no-touch #stick-zone { display: none; }
+body.no-touch #stick-zone, body.no-touch #stick-zone2 { display: none; }
 
-#move-buttons { position: absolute; right: 2cqw; bottom: 3cqw; width: 46cqw; display: grid;
+#move-buttons, #move-buttons2 { position: absolute; right: 2cqw; bottom: 3cqw; width: 46cqw; display: grid;
   grid-template-columns: 1fr 1fr; gap: 1.8cqw; pointer-events: auto; }
-body.no-touch #move-buttons { left: 2cqw; right: 2cqw; width: auto; grid-template-columns: repeat(4, 1fr); bottom: 1.5cqw; }
+body.no-touch #move-buttons, body.no-touch #move-buttons2 { left: 2cqw; right: 2cqw; width: auto; grid-template-columns: repeat(4, 1fr); bottom: 1.5cqw; }
+/* one keyboard, two players: each gets half of the move bar */
+body.no-touch.two-p #move-buttons { right: 51%; }
+body.no-touch.two-p #move-buttons2 { left: 51%; }
+body.no-touch.two-p .mbtn { font-size: 2.3cqw; padding: 0 0.4cqw; }
 body.no-touch .mbtn { height: 10cqw; opacity: .82; }
 .mbtn { position: relative; height: 12cqw; letter-spacing: .02em; border-radius: 2.4cqw; border: 0.7cqw solid var(--ink);
   color: #fff; font: 900 2.9cqw/1.05 var(--font); text-align: center; overflow: hidden; cursor: pointer;
@@ -199,15 +207,16 @@ kbd { background: #2b2540; border: 0.3cqw solid #555; border-bottom-width: 0.8cq
 #result-stats { font: 700 4cqw/1.6 system-ui, sans-serif; margin-bottom: 3cqw; }
 
 /* ---------- Swap ---------- */
-#btn-swap { position: absolute; right: 2cqw; bottom: 32cqw; pointer-events: auto; overflow: hidden;
+#btn-swap, #btn-swap2 { position: absolute; right: 2cqw; bottom: 32cqw; pointer-events: auto; overflow: hidden;
   font: 900 3.4cqw var(--font); color: #fff; padding: 1.6cqw 4cqw; border-radius: 3cqw; cursor: pointer;
   border: 0.6cqw solid var(--ink); background: linear-gradient(#5a6fd8, #3a4aa8); box-shadow: inset 0 -0.8cqw 0 rgba(0,0,0,.25);
   -webkit-text-stroke: 0.3cqw rgba(0,0,0,.5); paint-order: stroke fill; }
-body.no-touch #btn-swap { bottom: 13cqw; }
-#btn-swap .nm, #btn-swap .key { position: relative; z-index: 1; }
-#btn-swap .key { margin-left: 1.4cqw; font-size: 2.4cqw; opacity: .75; }
-body:not(.no-touch) #btn-swap .key { display: none; }
-#btn-swap .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(10,8,18,.6); }
+body.no-touch #btn-swap, body.no-touch #btn-swap2 { bottom: 13cqw; }
+body.no-touch.two-p #btn-swap { right: auto; left: 2cqw; }
+#btn-swap .nm, #btn-swap .key, #btn-swap2 .nm, #btn-swap2 .key { position: relative; z-index: 1; }
+#btn-swap .key, #btn-swap2 .key { margin-left: 1.4cqw; font-size: 2.4cqw; opacity: .75; }
+body:not(.no-touch) #btn-swap .key, body:not(.no-touch) #btn-swap2 .key { display: none; }
+#btn-swap .cd, #btn-swap2 .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(10,8,18,.6); }
 #btn-swap.open { filter: brightness(1.25); }
 #swap-tray { position: absolute; left: 2cqw; right: 2cqw; bottom: 41cqw; pointer-events: auto; z-index: 3;
   display: flex; gap: 1.6cqw; justify-content: flex-end; flex-wrap: wrap; }
@@ -218,3 +227,13 @@ body.no-touch #swap-tray { bottom: 22cqw; }
 .swap-chip .mini { height: 1.2cqw; background: #2a2638; border-radius: 1cqw; overflow: hidden; margin-top: 0.6cqw; }
 .swap-chip .mini div { height: 100%; }
 .swap-chip.off { opacity: .35; pointer-events: none; border-color: #3a3358; }
+
+/* ---------- 2 players ---------- */
+.screen.flip { transform: rotate(180deg); }
+#grp-diff.off { opacity: .35; pointer-events: none; }
+/* tabletop: player 2's controls cover the top band, so the HUD panels give way to
+   HP bars drawn over each monster, and the clock and pause move to the midline */
+body.tabletop .hud-side { display: none; }
+body.tabletop #hud { background: none; }
+body.tabletop #timer { top: 57.6cqh; left: 1.5cqw; transform: translateY(-50%) rotate(90deg); }
+body.tabletop #btn-pause { top: 57.6cqh; left: auto; right: 1.5cqw; transform: translateY(-50%); }

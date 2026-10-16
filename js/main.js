@@ -1,9 +1,12 @@
 // App bootstrap: menus, team select, game loop.
 
 const App = {
+  mode: '1p',       // '1p' vs the CPU, or '2p' local
+  picking: 0,       // which player is choosing a team (2P)
   diff: 'normal',
   stage: 'summit',
   team: [],
+  team2: [],
   enemyTeam: [],
   battle: null,
   paused: false,
@@ -53,9 +56,11 @@ function bindSeg(id, key) {
   });
 }
 bindSeg('#opt-diff', 'diff');
+bindSeg('#opt-mode', 'mode');
+$('#opt-mode').addEventListener('click', () => $('#grp-diff').classList.toggle('off', App.mode === '2p'));
 bindSeg('#opt-stage', 'stage');
 
-$('#btn-play').onclick = () => { Sfx.init(); Sfx.play('select'); openTeamSelect(); };
+$('#btn-play').onclick = () => { Sfx.init(); Sfx.play('select'); App.picking = 0; openTeamSelect(); };
 $('#btn-help').onclick = () => { Sfx.init(); Sfx.play('select'); UI.show('help'); };
 $('#btn-help-back').onclick = () => { Sfx.play('back'); UI.show('title'); };
 const muteBtn = $('#btn-mute');
@@ -65,6 +70,11 @@ Input.onMute = toggleMute;
 
 // ---------- team select ----------
 let detailId = null;
+const twoP = () => App.mode === '2p';
+// a tabletop game is 2 players sharing one touch screen
+const tabletop = () => twoP() && !document.body.classList.contains('no-touch');
+const curTeam = () => (App.picking === 1 ? App.team2 : App.team);
+
 function openTeamSelect() {
   const roster = $('#roster');
   if (!roster.children.length) {
@@ -79,30 +89,38 @@ function openTeamSelect() {
       roster.appendChild(card);
     }
   }
+  detailId = null;
   refreshTeam();
+  $('#screen-team').classList.toggle('flip', tabletop() && App.picking === 1);
   UI.show('team');
 }
 
 function toggleTeam(id) {
   Sfx.play('select');
-  const i = App.team.indexOf(id);
-  if (i >= 0) App.team.splice(i, 1);
-  else if (App.team.length < 6) App.team.push(id);
+  const team = curTeam();
+  const i = team.indexOf(id);
+  if (i >= 0) team.splice(i, 1);
+  else if (team.length < 6) team.push(id);
   detailId = id;
   refreshTeam();
 }
 
 function refreshTeam() {
   document.querySelectorAll('#roster .card').forEach(c => {
-    const i = App.team.indexOf(c.dataset.id);
+    const i = curTeam().indexOf(c.dataset.id);
     c.classList.toggle('sel', i >= 0);
     c.querySelector('.order').textContent = i >= 0 ? i + 1 : '';
   });
-  $('#team-count').textContent = `${App.team.length}/6`;
-  $('#btn-team-go').disabled = App.team.length === 0;
+  const team = curTeam();
+  $('#team-title').textContent = twoP() ? `Player ${App.picking + 1}: pick your team` : 'Pick your team';
+  $('#team-count').textContent = `${team.length}/6`;
+  $('#btn-team-go').disabled = team.length === 0;
+  $('#btn-team-go').textContent = twoP() && App.picking === 0 ? 'NEXT' : 'FIGHT!';
   const d = $('#team-detail');
   if (!detailId) {
-    d.innerHTML = `<div class="hint">Tap monsters to add them to your team (up to 6). The CPU fields a team of the same size.</div>`;
+    d.innerHTML = twoP()
+      ? `<div class="hint">Player ${App.picking + 1}, tap monsters to add them to your team (up to 6). Both players may pick the same monsters.</div>`
+      : `<div class="hint">Tap monsters to add them to your team (up to 6). The CPU fields a team of the same size.</div>`;
     return;
   }
   const m = ROSTER_BY_ID[detailId];
@@ -113,16 +131,22 @@ function refreshTeam() {
   drawPortrait(d.querySelector('canvas'), m.id);
 }
 
-$('#btn-team-back').onclick = () => { Sfx.play('back'); UI.show('title'); };
+$('#btn-team-back').onclick = () => {
+  Sfx.play('back');
+  if (App.picking === 1) { App.picking = 0; openTeamSelect(); return; }
+  UI.show('title');
+};
 $('#btn-team-random').onclick = () => {
   Sfx.play('select');
-  App.team = shuffle(ROSTER.map(m => m.id)).slice(0, 6);
-  detailId = App.team[0];
+  const team = curTeam();
+  team.splice(0, team.length, ...shuffle(ROSTER.map(m => m.id)).slice(0, 6));
+  detailId = team[0];
   refreshTeam();
 };
 $('#btn-team-go').onclick = () => {
   Sfx.play('select');
-  App.enemyTeam = shuffle(ROSTER.map(m => m.id)).slice(0, App.team.length);
+  if (twoP() && App.picking === 0) { App.picking = 1; openTeamSelect(); return; }
+  App.enemyTeam = twoP() ? App.team2.slice() : shuffle(ROSTER.map(m => m.id)).slice(0, App.team.length);
   startBattle();
 };
 
@@ -132,26 +156,36 @@ function shuffle(a) {
 }
 
 // ---------- battle ----------
-Input.bindStick($('#stick-zone'), $('#stick'), $('#knob'));
+Input.bindStick($('#stick-zone'), $('#stick'), $('#knob'), 0);
+Input.bindStick($('#stick-zone2'), $('#stick2'), $('#knob2'), 1, true);
 
 function startBattle() {
   const stages = Object.keys(STAGES);
   const stage = App.stage === 'random' ? stages[(Math.random() * stages.length) | 0] : App.stage;
   UI.hideScreens();
+  UI.twoP = twoP(); UI.tabletop = tabletop();
+  document.body.classList.toggle('two-p', UI.twoP);
+  document.body.classList.toggle('tabletop', UI.tabletop);
+  Input.setMode(UI.twoP ? 'duo' : 'solo');
   UI.setBattleChrome(true);
   UI.hudCache = {};
   UI.closeSwap();
   Input.reset();
   Sfx.init(); Sfx.resume(); Sfx.music.start();
   App.paused = false;
-  App.battle = new Battle({ playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI });
-  UI.buildMoveButtons(App.battle.P);
+  App.battle = new Battle({ playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI,
+    twoP: UI.twoP, overheadBars: UI.tabletop });
+  UI.buildMoveButtons(App.battle.P, 0);
+  if (UI.twoP) UI.buildMoveButtons(App.battle.E, 1);
 }
 
 function leaveBattle(to) {
   App.battle = null; App.paused = false;
   Sfx.resume(); Sfx.music.stop();
   UI.setBattleChrome(false);
+  document.body.classList.remove('two-p', 'tabletop');
+  Input.setMode('solo');
+  App.picking = 0;
   if (to === 'team') openTeamSelect(); else UI.show('title');
 }
 
@@ -164,16 +198,19 @@ function togglePause() {
 }
 Input.onPause = togglePause;
 
-// Q / Tab: instant swap to the next healthy teammate (no pause)
-Input.onSwap = () => {
+// Swap key / bumper / player 2's SWAP button: instant swap to the next healthy teammate (no pause)
+function cycleSwap(side) {
   const b = App.battle;
-  if (!b || App.paused) return;
-  for (let k = 1; k < b.p.length; k++) {
-    const i = (b.pi + k) % b.p.length;
-    if (b.canSwap('player', i)) { b.swap('player', i); Sfx.play('ball'); return; }
+  if (!b || App.paused || (side === 'enemy' && !b.twoP)) return;
+  const team = side === 'player' ? b.p : b.e, cur = side === 'player' ? b.pi : b.ei;
+  for (let k = 1; k < team.length; k++) {
+    const i = (cur + k) % team.length;
+    if (b.canSwap(side, i)) { b.swap(side, i); Sfx.play('ball'); return; }
   }
-};
+}
+Input.onSwap = p => cycleSwap(p === 0 ? 'player' : 'enemy');
 $('#btn-swap').addEventListener('pointerdown', e => { e.preventDefault(); UI.toggleSwap(App.battle); });
+$('#btn-swap2').addEventListener('pointerdown', e => { e.preventDefault(); cycleSwap('enemy'); });
 $('#btn-pause').onclick = togglePause;
 $('#btn-resume').onclick = togglePause;
 $('#btn-quit').onclick = () => { Sfx.play('back'); leaveBattle('title'); };
@@ -187,6 +224,7 @@ let last = performance.now(), clockT = 0;
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; clockT += dt;
+  Input.poll();
   const b = App.battle;
   if (b) {
     if (!App.paused && b.state !== 'pick') b.update(dt);

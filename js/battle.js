@@ -187,13 +187,15 @@ class AI {
 
 // ------------------------------------------------------------------ Battle
 class Battle {
-  constructor({ playerTeam, enemyTeam, difficulty, stage, ui }) {
+  constructor({ playerTeam, enemyTeam, difficulty, stage, ui, twoP = false, overheadBars = false }) {
     this.ui = ui;
     this.p = playerTeam.map(id => new Mon(ROSTER_BY_ID[id], 'player'));
     this.e = enemyTeam.map(id => new Mon(ROSTER_BY_ID[id], 'enemy'));
     this.pi = 0; this.ei = 0;
     this.diff = DIFFICULTY[difficulty];
-    this.ai = new AI(this.diff);
+    // In 2-player mode the top trainer is a second human instead of the CPU.
+    this.twoP = twoP; this.overheadBars = overheadBars;
+    this.ai = twoP ? null : new AI(this.diff);
     const built = buildStage(stage, (Math.random() * 1e9) | 0);
     this.ground = built.canvas; this.stage = built.stage;
     this.decal = document.createElement('canvas'); this.decal.width = W; this.decal.height = H;
@@ -220,7 +222,7 @@ class Battle {
     const pos = at || SPAWN_POS[side];
     m.x = clamp(pos.x, FIELD.x0 + m.r, FIELD.x1 - m.r); m.y = clamp(pos.y, FIELD.y0 + m.r, FIELD.y1 - 2);
     m.face = side === 'player' ? 1 : -1;
-    if (side === 'enemy') this.ai.reset();
+    if (side === 'enemy' && this.ai) this.ai.reset();
     this.balls.push({ side, from: TRAINER_POS[side], to: { x: m.x, y: m.y - 6 }, t: 0, dur: 0.55 });
     this.ui.onSendOut(side, m);
     Sfx.play('ball');
@@ -278,13 +280,21 @@ class Battle {
       return;
     }
     const needE = this.E.fainted, needP = this.P.fainted;
-    if (needE) this.ei = this.chooseEnemyNext(-1);
-    if (needP) {
-      this.state = 'pick'; this.pendingE = needE;
-      this.ui.pickNext(this.p, idx => { this.pi = idx; this.startSendouts(true, this.pendingE); });
-    } else {
-      this.startSendouts(false, needE);
-    }
+    if (needE && this.ai) this.ei = this.chooseEnemyNext(-1);
+    // humans pick their own replacement, player 1 first
+    const queue = [];
+    if (needP) queue.push('player');
+    if (needE && !this.ai) queue.push('enemy');
+    const next = () => {
+      const side = queue.shift();
+      if (!side) { this.startSendouts(needP, needE); return; }
+      this.state = 'pick';
+      this.ui.pickNext(side === 'player' ? this.p : this.e, idx => {
+        if (side === 'player') this.pi = idx; else this.ei = idx;
+        next();
+      }, this.twoP ? side : null);
+    };
+    next();
   }
 
   chooseEnemyNext(exclude) {
@@ -303,9 +313,10 @@ class Battle {
   end(result) {
     this.state = 'over';
     Sfx.music.stop(0.6);
-    setTimeout(() => Sfx.play(result === 'win' ? 'win' : 'lose'), 500);
+    setTimeout(() => Sfx.play(result === 'win' || (this.twoP && result !== 'draw') ? 'win' : 'lose'), 500);
     const dealt = this.p.reduce((s, m) => s + m.dmgDealt, 0);
-    this.ui.onEnd({ result, time: this.clock, kos: this.kos.player, lost: this.kos.enemy, dealt });
+    const dealtE = this.e.reduce((s, m) => s + m.dmgDealt, 0);
+    this.ui.onEnd({ result, time: this.clock, kos: this.kos.player, lost: this.kos.enemy, dealt, dealtE, twoP: this.twoP });
   }
 
   // ---------------------------------------------------------- moves
@@ -317,12 +328,12 @@ class Battle {
 
   aim(m, foe, mv) {
     let tx = foe.x, ty = foe.cy;
-    if (m.side === 'enemy' && this.diff.lead && mv.speed && mv.kind === 'projectile') {
+    if (m.side === 'enemy' && this.ai && this.diff.lead && mv.speed && mv.kind === 'projectile') {
       const t = Math.hypot(tx - m.x, ty - m.cy) / mv.speed;
       tx += foe.vx * t * 0.8; ty += foe.vy * t * 0.8;
     }
     let a = Math.atan2(ty - m.cy, tx - m.x);
-    if (m.side === 'enemy') a += (Math.random() - 0.5) * 2 * this.diff.aimErr;
+    if (m.side === 'enemy' && this.ai) a += (Math.random() - 0.5) * 2 * this.diff.aimErr;
     return a;
   }
 
@@ -440,13 +451,13 @@ class Battle {
 
   applyStatus(m, s) {
     if (m.status || m.fainted) return;
-    const immune = { par: 'electric', brn: 'fire', frz: 'ice' }[s];
-    if (m.def.types.includes(immune)) return;
+    const immune = { par: ['electric'], brn: ['fire'], frz: ['ice'], psn: ['poison', 'steel'] }[s];
+    if (m.def.types.some(t => immune.includes(t))) return;
     m.status = s;
-    m.statusT = { par: 8, brn: 6, frz: 1.6 }[s];
+    m.statusT = { par: 8, brn: 6, frz: 1.6, psn: 8 }[s];
     m.statusTick = 1;
-    const label = { par: 'IS PARALYZED!', brn: 'WAS BURNED!', frz: 'IS FROZEN!' }[s];
-    const col = { par: '#ffe066', brn: '#ff8a4a', frz: '#bff0ff' }[s];
+    const label = { par: 'IS PARALYZED!', brn: 'WAS BURNED!', frz: 'IS FROZEN!', psn: 'WAS POISONED!' }[s];
+    const col = { par: '#ffe066', brn: '#ff8a4a', frz: '#bff0ff', psn: '#e0a0ff' }[s];
     this.text(m.x, m.y - m.h - 2, label, col);
     if (s === 'frz') { m.action = null; m.vx = m.vy = 0; }
     Sfx.play('status');
@@ -473,11 +484,12 @@ class Battle {
         this.clock += dt;
         this.swapCd.player -= dt; this.swapCd.enemy -= dt;
         const P = this.P, E = this.E;
-        const aiDir = this.ai.update(dt, E, P, this);
-        this.updateMon(P, dt, E, Input.dir());
-        const held = Input.moves();
+        const eDir = this.ai ? this.ai.update(dt, E, P, this) : Input.dir(1);
+        this.updateMon(P, dt, E, Input.dir(0));
+        const held = Input.moves(0);
         for (let i = 0; i < 4; i++) if (held[i]) this.tryMove(P, i);
-        if (this.state === 'fight') this.updateMon(E, dt, P, aiDir);
+        if (!this.ai) { const h2 = Input.moves(1); for (let i = 0; i < 4; i++) if (h2[i]) this.tryMove(E, i); }
+        if (this.state === 'fight') this.updateMon(E, dt, P, eDir);
         if (this.state === 'fight') this.separate(P, E);
         this.updateProjectiles(dt);
         this.updateZones(dt);
@@ -533,6 +545,14 @@ class Battle {
         m.hp = Math.max(0, m.hp - d);
         this.number(m, d, null, '#ffb080', '#c84a1a');
         this.burst(m.x, m.cy, TYPES.fire.fx, 6, 30, -40);
+        if (m.hp <= 0) { this.faint(m); return; }
+      }
+      if (m.status === 'psn' && m.statusTick <= 0) {
+        m.statusTick = 1;
+        const d = Math.round(m.maxHp * 0.025);
+        m.hp = Math.max(0, m.hp - d);
+        this.number(m, d, null, '#e8b8ff', '#8a3ab0');
+        this.burst(m.x, m.cy, TYPES.poison.fx, 6, 30, -30);
         if (m.hp <= 0) { this.faint(m); return; }
       }
       if (m.statusT <= 0) {
@@ -842,8 +862,30 @@ class Battle {
       ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(k * 10);
       ctx.drawImage(BALL_IMG, -4.5, -3.75, 9, 7.5); ctx.restore();
     }
+    if (this.overheadBars) this.drawBars(ctx);
     this.drawFloats(ctx);
     this.drawWeather(ctx);
+  }
+
+  // Tabletop 2-player hides the HUD under player 2's controls, so each monster
+  // carries a small HP bar, its status colour and a row of team pips instead.
+  drawBars(ctx) {
+    const STATUS_COL = { par: '#d6b21e', brn: '#e0582a', frz: '#4fb6d8', psn: '#9a3ab8' };
+    for (const m of [this.P, this.E]) {
+      if (!m.visible || m.fainted) continue;
+      const w = 26, x = Math.round(m.x - w / 2), y = Math.round(m.y - m.h - 6);
+      const pct = m.hp / m.maxHp;
+      ctx.fillStyle = OUTLINE; ctx.fillRect(x - 1, y - 1, w + 2, 5);
+      ctx.fillStyle = '#2a2638'; ctx.fillRect(x, y, w, 3);
+      ctx.fillStyle = pct > 0.5 ? '#3ccf4e' : pct > 0.2 ? '#f2c12e' : '#e8433a';
+      ctx.fillRect(x, y, Math.max(1, Math.round(w * pct)), 3);
+      if (m.status) { ctx.fillStyle = STATUS_COL[m.status]; ctx.fillRect(x + w + 2, y - 1, 4, 5); }
+      const team = m.side === 'player' ? this.p : this.e;
+      team.forEach((t, i) => {
+        ctx.fillStyle = t.fainted ? '#3a3646' : t === m ? '#ffd23f' : '#f6f2ee';
+        ctx.fillRect(x + i * 4, y + 5, 3, 2);
+      });
+    }
   }
 
   drawTrainer(ctx, side) {
@@ -899,6 +941,7 @@ class Battle {
     else if (m.status === 'frz') { tint = '#9fe6ff'; ta = 0.55; }
     else if (m.status === 'par' && Math.sin(this.time * 18) > 0.6) { tint = '#ffe24a'; ta = 0.45; }
     else if (m.status === 'brn' && Math.sin(this.time * 10) > 0.5) { tint = '#ff5a2a'; ta = 0.35; }
+    else if (m.status === 'psn' && Math.sin(this.time * 7) > 0.4) { tint = '#b04ae0'; ta = 0.4; }
     else if (m.stunT > 0 && Math.sin(this.time * 20) > 0) { tint = '#ffffff'; ta = 0.25; }
     if (tint) { ctx.globalAlpha = ta * alpha; ctx.drawImage(tinted(m.id, tint), dx, dy, S, S); }
     ctx.restore();
@@ -1038,7 +1081,7 @@ class Battle {
       ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.strokeRect(-p.r, -p.r, p.r * 2, p.r * 2); ctx.restore();
       return;
     }
-    if (t === 'ice') {
+    if (t === 'ice' || t === 'bug' || t === 'flying') {
       const a = Math.atan2(p.vy, p.vx);
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
       ctx.fillStyle = fx[1]; ctx.beginPath(); ctx.moveTo(p.r * 3, 0); ctx.lineTo(-p.r * 2, -p.r); ctx.lineTo(-p.r * 2, p.r); ctx.closePath(); ctx.fill();

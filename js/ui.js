@@ -13,6 +13,7 @@ const UI = {
   setBattleChrome(on) {
     $('#hud').classList.toggle('hidden', !on);
     $('#controls').classList.toggle('hidden', !on);
+    $('#controls2').classList.toggle('hidden', !on || !this.twoP);
     if (!on) { $('#callouts').innerHTML = ''; $('#banner').className = ''; }
   },
 
@@ -39,11 +40,16 @@ const UI = {
   },
 
   onSendOut(side, mon) {
-    if (side === 'player') { this.buildMoveButtons(mon); this.closeSwap(); }
+    if (side === 'player') { this.buildMoveButtons(mon, 0); this.closeSwap(); }
+    else if (this.twoP) this.buildMoveButtons(mon, 1);
     this.hudCache = {};
   },
 
   // ---------------- swap tray (does not pause the fight) ----------------
+  twoP: false,      // set by main.js for the current battle
+  tabletop: false,  // 2-player on one touch screen, player 2's side rotated
+  moveBtns: [],
+
   swapOpen: false,
   toggleSwap(battle) {
     if (this.swapOpen) { this.closeSwap(); return; }
@@ -77,7 +83,11 @@ const UI = {
     $('#btn-swap').classList.remove('open');
   },
 
-  pickNext(team, cb) {
+  // who: null in 1P, else 'player' / 'enemy' to say whose turn it is.
+  pickNext(team, cb, who = null) {
+    const scr = $('#screen-pick');
+    scr.querySelector('h2').textContent = who ? `Player ${who === 'player' ? 1 : 2}: choose your next monster` : 'Choose your next monster';
+    scr.classList.toggle('flip', this.tabletop && who === 'enemy');
     const list = $('#pick-list');
     list.innerHTML = '';
     team.forEach((m, i) => {
@@ -97,27 +107,31 @@ const UI = {
 
   onEnd(r) {
     setTimeout(() => {
-      const title = { win: 'VICTORY!', lose: 'DEFEAT', draw: 'DRAW' }[r.result];
+      const title = r.twoP ? { win: 'PLAYER 1 WINS!', lose: 'PLAYER 2 WINS!', draw: 'DRAW' }[r.result]
+        : { win: 'VICTORY!', lose: 'DEFEAT', draw: 'DRAW' }[r.result];
       $('#result-title').textContent = title;
       const mm = Math.floor(r.time / 60), ss = String(Math.floor(r.time % 60)).padStart(2, '0');
-      $('#result-stats').innerHTML = `Time ${mm}:${ss}<br>Knockouts ${r.kos} &nbsp;·&nbsp; Lost ${r.lost}<br>Damage dealt ${r.dealt}`;
+      $('#result-stats').innerHTML = r.twoP
+        ? `Time ${mm}:${ss}<br>Knockouts P1 ${r.kos} &nbsp;·&nbsp; P2 ${r.lost}<br>Damage P1 ${r.dealt} &nbsp;·&nbsp; P2 ${r.dealtE}`
+        : `Time ${mm}:${ss}<br>Knockouts ${r.kos} &nbsp;·&nbsp; Lost ${r.lost}<br>Damage dealt ${r.dealt}`;
       this.show('result');
     }, 1200);
   },
 
   // ---------------- HUD ----------------
-  buildMoveButtons(mon) {
-    const box = $('#move-buttons');
+  // p: 0 = bottom player, 1 = player 2 (2-player mode only)
+  buildMoveButtons(mon, p = 0) {
+    const box = $(p ? '#move-buttons2' : '#move-buttons');
     box.innerHTML = '';
-    const keys = ['J', 'K', 'L', ';'];
-    this.moveBtns = mon.moves.map((mv, i) => {
+    const keys = Input.labels(p);
+    this.moveBtns[p] = mon.moves.map((mv, i) => {
       const b = document.createElement('div');
       b.className = 'mbtn';
       const col = TYPES[mv.type].color;
       b.style.background = `linear-gradient(${col}, ${shadeHex(col, -0.25)})`;
       b.innerHTML = `<span class="key">${keys[i]}</span><span class="nm">${mv.name}</span><div class="cd"></div>`;
       b.style.display = 'flex'; b.style.alignItems = 'center'; b.style.justifyContent = 'center';
-      Input.bindMoveButton(b, i);
+      Input.bindMoveButton(b, i, p);
       box.appendChild(b);
       return { el: b, cd: b.querySelector('.cd') };
     });
@@ -141,13 +155,15 @@ const UI = {
         c.el.classList.toggle('off', !battle.canSwap('player', c.i));
       }
     }
-    if (this.moveBtns) {
-      const m = battle.P;
-      this.moveBtns.forEach((b, i) => {
+    if (this.twoP) $('#btn-swap2 .cd').style.height = (Math.max(0, battle.swapCd.enemy) / 8 * 100) + '%';
+    this.moveBtns.forEach((btns, p) => {
+      const m = p ? battle.E : battle.P;
+      if (!btns || (p && !this.twoP)) return;
+      btns.forEach((b, i) => {
         const full = m.moves[i].cd * (m.item.cd || 1);
         b.cd.style.height = (m.cd[i] > 0 ? (m.cd[i] / full) * 100 : 0) + '%';
       });
-    }
+    });
   },
 
   updateSide(sel, mon, team, idx, key) {

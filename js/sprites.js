@@ -182,6 +182,105 @@ const MONSTER_ART = {
     g.rect(15, 14, 2, 1, OUTLINE);
     g.rect(14, 19, 4, 1, '#a8703e');
   },
+
+  galewing(g) {
+    const B = P('#8fa8f0', '#5a6ec8', '#c8d6ff');
+    const Wg = P('#eef2ff', '#a8b4e0', '#ffffff');
+    const Y = '#ffc23a';
+    g.poly([[20, 23], [31, 29], [27, 21]], B);                                                  // tail feathers
+    g.polyM([[10, 17], [0, 8], [2, 15], [1, 21], [8, 25]], Wg, { edge: true });                // spread wings
+    g.pxM(3, 13, '#a8b4e0'); g.pxM(4, 18, '#a8b4e0');
+    g.poly([[14, 7], [12, 0], [16, 4], [19, 0], [18, 7]], B);                                   // crest
+    g.ellipse(16, 20, 7.5, 7.5, B, { edge: true });                                             // body
+    g.ellipse(16, 22, 4.5, 5, '#f4f0e6');                                                       // belly
+    g.ellipse(16, 11, 6.5, 6, B, { edge: true });                                               // head
+    g.poly([[14, 13], [19, 13], [16, 17]], Y);                                                  // beak
+    g.eyes(12, 10, DARK_EYE, { brow: true });
+    g.rectM(12, 28, 2, 2, Y);                                                                   // feet
+  },
+
+  venomire(g) {
+    const B = P('#a052c8', '#6e2e94', '#d08cf0');
+    const S = '#d8f04a';
+    g.ellipse(16, 25.5, 13, 5, B, { edge: true });                                              // slimy base
+    g.polyM([[11, 10], [7, 2], [14, 8]], B);                                                    // horns
+    g.pxM(7, 2, S); g.pxM(8, 3, S);
+    g.ellipse(16, 17, 8, 9, B, { edge: true });                                                 // body
+    g.ellipse(16, 21, 4.5, 4.5, '#e4b8f4');                                                     // belly
+    for (const [x, y] of [[8, 25], [22, 27], [25, 23], [5, 24], [17, 9], [11, 20]]) { g.px(x, y, S); g.px(x + 1, y, S); }
+    g.eyes(12, 13, '#3a0a4a');
+    g.rect(14, 17, 4, 1, OUTLINE); g.px(15, 18, '#ffffff'); g.px(17, 18, '#ffffff');             // fanged grin
+    g.px(4, 28, '#6e2e94'); g.px(27, 28, '#6e2e94');                                             // drips
+  },
+
+  scarablade(g) {
+    const Sh = P('#7ea81e', '#4e6e10', '#c4e04a');
+    const Bd = P('#3a3a2a', '#22221a', '#5a5a44');
+    const Hn = P('#e8dcb0', '#a89c78', '#fffbe6');
+    g.poly([[14, 10], [14, 4], [12, 0], [16, 2], [17, 5], [18, 10]], Hn, { edge: true });      // great horn
+    g.poly([[16, 4], [21, 1], [19, 5], [17, 6]], Hn);                                           // horn fork
+    g.ellipseM(9, 28, 3, 2, Bd, { edge: true });                                                // legs
+    g.ellipseM(5.5, 19, 3, 3.2, Bd, { edge: true });                                            // fists
+    g.ellipse(16, 20, 10, 8.5, Sh, { edge: true });                                             // shell
+    g.rect(16, 13, 1, 15, '#3a5208');                                                           // shell seam
+    g.pxM(11, 18, '#c4e04a'); g.pxM(12, 17, '#c4e04a');
+    g.ellipse(16, 11.5, 6, 4.5, Bd, { edge: true });                                            // head
+    g.rect(10, 8, 12, 2, '#d23a3a');                                                            // headband
+    g.poly([[21, 8], [28, 5], [27, 10]], '#d23a3a');
+    g.eyes(12, 11, '#ffde3a', { brow: true, h: 2 });
+  },
+
+  wispurr(g) {
+    const B = P('#8a74c8', '#5a4494', '#bcaaf0');
+    const F = P('#7af0e0', '#3ab8b0', '#e0fffa');
+    g.poly([[18, 23], [27, 29], [25, 23], [30, 18], [22, 19]], B);                              // wispy tail
+    g.ellipse(29, 16, 2.5, 3.5, F);                                                             // tail wisp-flame
+    g.polyM([[10, 9], [7, 1], [14, 6]], B, { edge: true });                                     // ears
+    g.pxM(8, 3, '#3ab8b0'); g.pxM(9, 5, '#3ab8b0');
+    g.ellipse(16, 21, 7, 6, B, { edge: true });                                                 // body
+    g.poly([[9, 21], [10, 29], [13, 25], [16, 30], [19, 25], [22, 29], [23, 21]], B);           // ragged hem
+    g.ellipse(16, 12, 7.5, 6.5, B, { edge: true });                                             // head
+    g.eyes(11, 11, '#2ad8c0');
+    g.px(15, 15, OUTLINE).px(17, 15, OUTLINE).px(16, 16, OUTLINE);                              // cat mouth
+    g.pxM(6, 14, '#bcaaf0'); g.pxM(5, 15, '#bcaaf0');                                           // whiskers
+  },
+
+  gearhulk(g) { // 44x44
+    const M = P('#a8b0c4', '#6e7690', '#dfe4f0');
+    const D = P('#5a6278', '#3a4054', '#7e869c');
+    const G = '#e0a83a';
+    g.ellipseM(11, 40, 5, 2.5, D, { edge: true });                                              // feet
+    g.ellipseM(5, 25, 4.5, 8, D, { edge: true });                                               // arms
+    g.ellipseM(5, 34, 5, 4, M, { edge: true });                                                 // fists
+    g.poly([[9, 14], [35, 14], [37, 37], [7, 37]], M, { edge: true });                          // torso
+    g.ellipse(22, 26, 6, 6, G);                                                                 // chest gear
+    g.rect(21, 18, 2, 2, G); g.rect(21, 32, 2, 2, G); g.rect(14, 25, 2, 2, G); g.rect(28, 25, 2, 2, G);
+    g.ellipse(22, 26, 2.2, 2.2, '#7a5418');
+    for (const [x, y] of [[11, 17], [32, 17], [10, 34], [33, 34]]) g.px(x, y, '#3a4054');        // rivets
+    g.rect(21, 1, 2, 4, '#6e7690'); g.ellipse(22, 1.5, 1.6, 1.6, '#ff4a3a');                    // antenna
+    g.poly([[14, 5], [30, 5], [31, 15], [13, 15]], M, { edge: true });                          // head
+    g.rect(16, 8, 12, 4, '#1c2a3a');                                                            // visor
+    g.rect(18, 9, 2, 2, '#5affff'); g.rect(24, 9, 2, 2, '#5affff');
+  },
+
+  pixibelle(g) {
+    const B = P('#ffc4dc', '#e88ab4', '#fff0f6');
+    const Wn = P('#d8f4ff', '#a4d4f0', '#ffffff');
+    const Pk = '#ff5a9e';
+    g.ellipseM(6.5, 13, 5.5, 5, Wn, { edge: true });                                            // upper wings
+    g.ellipseM(8, 22, 4, 3.5, Wn, { edge: true });                                              // lower wings
+    g.ellipseM(5.5, 12, 1.8, 1.5, '#ffb4dc');                                                   // wing spots
+    g.rectM(12, 2, 1, 4, OUTLINE);                                                              // antennae
+    g.pxM(12, 1, '#ffe066'); g.pxM(11, 1, '#ffe066'); g.pxM(12, 0, '#ffe066');
+    g.ellipse(16, 23, 5, 5.5, B, { edge: true });                                               // body
+    g.poly([[10, 29], [22, 29], [19, 22], [13, 22]], P(Pk, '#c83a7a', '#ff9ac4'), { edge: true }); // skirt
+    g.ellipse(16, 12.5, 7, 6.5, B, { edge: true });                                             // head
+    g.poly([[11, 5], [16, 8], [11, 10]], Pk); g.poly([[21, 5], [16, 8], [21, 10]], Pk);         // bow
+    g.px(16, 8, '#c83a7a');
+    g.eyes(12, 12, '#6a2a5a');
+    g.ellipseM(10, 16, 1.5, 1, '#ff8ab8');                                                      // cheeks
+    g.px(16, 17, OUTLINE);
+  },
 };
 
 const SPRITES = {};

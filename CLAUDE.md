@@ -1,10 +1,10 @@
 # Monster Battle Stadium
 
-Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Battlegrounds" YouTube short. Plain HTML5 Canvas + vanilla JS: no build step, no dependencies, no asset files. Scripts load as classic `<script>` tags in `index.html` (globals, not ES modules), so the page also works from `file://`. Runs on phone (touch) and desktop (keyboard).
+Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Battlegrounds" YouTube short. Plain HTML5 Canvas + vanilla JS: no build step, no dependencies, no asset files. Scripts load as classic `<script>` tags in `index.html` (globals, not ES modules), so the page also works from `file://`. Runs on phone (touch), desktop (keyboard) and gamepads, for 1 player vs the CPU or 2 local players.
 
 ## Where things live
 
-- Repo: `mendezm87/monster-battle-stadium` (public). Working branch: `claude/video-accessibility-check-rdngdp`, currently the only branch.
+- Repo: `mendezm87/monster-battle-stadium` (public). Original branch: `claude/video-accessibility-check-rdngdp` (no `main` yet). The 18 types, beams for every type and 2-player mode were built on `feature/18-types-beams-2p`.
 - Playable claude.ai artifact (private to the owner): https://claude.ai/artifact/WCtXTByw25XMPjxCvRBfk8. It's published from a copy of `index.html` with only the body content, plus `css/` and `js/` as supporting files.
 - GitHub Pages (once the owner enables it from that branch's root): https://mendezm87.github.io/monster-battle-stadium/
 
@@ -14,7 +14,10 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 - **Music is an original chiptune** in the style of the Gold/Silver Mt. Silver Red battle. Never transcribe the real melody.
 - **Swapping mid-fight does not pause the game.** The swapping side is briefly open to attack, with an 8 s cooldown. HP and status carry over.
 - **Beam sound:** Normal is the base sound. Every other type adds a flavour layer (`BEAM_LAYERS` in `js/audio.js`), level-balanced through `LAYER_GAIN`.
-- Type immunities are softened to 0.25×, because a zero-damage matchup is frustrating in real time.
+- **18 types, matching the real games' type list and chart.** Type immunities are softened to 0.25×, because a zero-damage matchup is frustrating in real time.
+- **Every type has a beam move.** To make room, some older monsters swapped a move for their type's beam (e.g. Sparkit's Quick Hit became Volt Cannon).
+- **Poison status (PSN):** 2.5% max HP per second for 8 s, no attack drop. Poison and Steel types are immune.
+- **2-player is local only** (no server): a shared keyboard, a tabletop touch screen with player 2's controls rotated 180° along the top, or one gamepad per player. Player 2 is the top (`enemy`) side; `Battle.ai` is null in 2P. In tabletop mode the HUD panels hide and `Battle.drawBars` draws HP bars over each monster.
 
 ## Code map
 
@@ -27,7 +30,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 | `js/battle.js` | `Mon`, `AI`, `Battle`: simulation, effects, rendering (canvas is 2× world; sprites drawn at `SPR_SCALE` 1.5) |
 | `js/audio.js` | `Sfx`: synthesized SFX, `beamCharge`/`beamFire` + per-type layers, `Sfx.music` sequencer |
 | `js/ui.js`, `js/main.js` | HUD, callouts, swap tray, menus, team select, game loop |
-| `js/input.js` | Keyboard (WASD/arrows, J K L ;, Q/Tab swap, P pause, M mute) and touch stick/buttons |
+| `js/input.js` | Keyboard, touch and gamepad input for players 0 and 1. `Input.dir(p)`/`Input.moves(p)`; `Input.setMode('solo'|'duo')` switches key layouts (solo: WASD/arrows, J K L ;, Q/Tab swap, P pause; duo: P1 WASD + R T F G + Q, P2 arrows + I O K L + P, Esc pauses) |
 
 **Adding a monster:** add an art function to `MONSTER_ART` in `sprites.js`, plus a `ROSTER` entry in `data.js` (types, hp, atk, def, spd, size, item, 4 move ids). **Adding a type:** extend `TYPES`, add a `CHART` row and its column entries, and add a `BEAM_LAYERS` entry with a `LAYER_GAIN` value.
 
@@ -36,11 +39,12 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 There is no test suite. Check changes in headless Chromium through Playwright (installed globally):
 
 - Serve the repo with `python3 -m http.server 8137`. `window.__MBS` exposes app state (`__MBS.battle`).
-- To bot-play a whole battle, override `Input.dir`/`Input.moves` so they drive an `AI` on the player's side. Watch for page errors and check battle length (a 6v6 runs about 70–95 s).
+- To bot-play a whole battle, override `Input.dir(p)`/`Input.moves(p)` so they drive an `AI` on the player's side (and on player 2's side in 2P). Stepping `battle.update(1/60)` in a loop runs a battle in well under a second; stub `UI.pickNext` to auto-pick. Watch for page errors and check battle length (a 6v6 runs about 50–140 s with hard bots).
+- Balance check: a 1v1 round robin of every monster with hard bots on both sides. After adding the 6 new monsters, every one of them won 40–66% of its 1v1s. The original 12 range from Shadefang at ~21% to Mindra at ~71%, so hard bots favour ranged kits.
 - `Sfx._offline(offlineCtx, fn)` renders audio into an `OfflineAudioContext`, and `Sfx.music._scheduleAll(seconds)` schedules the song up front. Use these to check levels for clipping (no audio is audible in the container).
 
 ## Open ideas (not decided)
 
-- Six monsters in new types (Flying, Poison, Bug, Ghost, Steel, Fairy) to reach 18 types. The owner hasn't chosen a count yet.
-- Beam moves for more types. Their sound layers already exist; only normal, water, ice, dragon and psychic have beams today.
-- A possible 2-player mode.
+- Online 2-player (needs a signalling server for WebRTC, or a hosted backend).
+- Rebalance the weakest originals (Shadefang, Sparkit, Frostling) if human play agrees with the bot round robin.
+- Gamepad support is written to the standard mapping but hasn't been tried with real hardware yet.

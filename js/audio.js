@@ -63,7 +63,7 @@ const Sfx = (() => {
   };
 
   // ---------- beams: a rising charge-up, then a blast and a sustained roar ----------
-  const BEAM_PITCH = { normal: 55, dragon: 49, water: 65, ice: 82, psychic: 73 };
+  const BEAM_PITCH = { normal: 55, dragon: 49, water: 65, ice: 82, psychic: 73, flying: 78, poison: 52, bug: 87, ghost: 46, steel: 61, fairy: 98 };
 
   function beamCharge(dur) {
     const t = ctx.currentTime, end = t + dur;
@@ -138,7 +138,8 @@ const Sfx = (() => {
   // Layers play through `bus`, a gain whose level is balanced per type so each
   // flavour sits clearly under the base roar (sparse clicky layers need more gain).
   let bus = null;
-  const LAYER_GAIN = { fire: 7, water: 4.5, ice: 5, electric: 2, psychic: 2, dragon: 1.4, dark: 0.9, grass: 2.6, ground: 1, rock: 7, fighting: 2.6 };
+  const LAYER_GAIN = { fire: 7, water: 4.5, ice: 5, electric: 2, psychic: 2, dragon: 1.4, dark: 0.9, grass: 2.6, ground: 1, rock: 7, fighting: 2.6,
+    flying: 18, poison: 2.5, bug: 3.6, ghost: 2.3, steel: 3.5, fairy: 5 };
   // short filtered noise hit at absolute time t
   function hiss(t, len, vol, ftype, freq, q = 1) {
     const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -239,6 +240,43 @@ const Sfx = (() => {
     // rhythmic body blows
     fighting(t, dur) {
       for (let at = 0; at < dur; at += 0.12) blip(t + at, 180, 55, 0.1, 'sine', 0.3);
+    },
+    // howling wind: a resonant noise band sweeping up and down + whooshing gusts
+    flying(t, dur) {
+      const { f } = hiss(t, dur + 0.25, 0.2, 'bandpass', 1200, 6);
+      lfo(t, dur, 2.5, 700, f.frequency);
+      every(dur, 0.15, at => { const w = hiss(t + at, 0.14, 0.18, 'bandpass', 600, 3); w.f.frequency.exponentialRampToValueAtTime(3500, t + at + 0.14); });
+    },
+    // bubbling sludge: low gurgling blips over a sickly detuned drone
+    poison(t, dur, base) {
+      drone(t, dur, 'sawtooth', base * 3, 0.06, 900);
+      drone(t, dur, 'sawtooth', base * 3 * 1.09, 0.06, 900);
+      every(dur, 0.05, at => { const p = 120 + Math.random() * 180; blip(t + at, p, p * 0.6, 0.07, 'sine', 0.2); });
+    },
+    // buzzing wings: a fast-trilling nasal saw
+    bug(t, dur, base) {
+      const a = drone(t, dur, 'sawtooth', base * 6, 0.08, 2500);
+      lfo(t, dur, 28, base * 6 * 0.05, a.o.frequency);
+      lfo(t, dur, 45, 0.05, a.g.gain, 'square');
+    },
+    // ghostly moan: theremin-like sine with wide slow vibrato + distant whispers
+    ghost(t, dur, base) {
+      const a = drone(t, dur, 'sine', base * 8, 0.1);
+      a.o.frequency.setValueAtTime(base * 10, t); a.o.frequency.exponentialRampToValueAtTime(base * 6, t + dur);
+      lfo(t, dur, 5, base * 0.6, a.o.frequency);
+      hiss(t, dur + 0.25, 0.05, 'bandpass', 2400, 8);
+    },
+    // metallic clang + ringing inharmonic partials
+    steel(t, dur) {
+      for (let at = 0; at < dur; at += 0.18) for (const p of [880, 1253, 1717]) blip(t + at, p, p * 0.98, 0.16, 'square', 0.025);
+      drone(t, dur, 'triangle', 1500, 0.04);
+    },
+    // sparkling twinkles from a major arpeggio + a soft shimmer
+    fairy(t, dur) {
+      const notes = [1047, 1319, 1568, 2093, 2637];
+      let i = 0;
+      for (let at = 0; at < dur; at += 0.05) blip(t + at, notes[i++ % notes.length], notes[i % notes.length] * 1.01, 0.12, 'triangle', 0.08);
+      hiss(t, dur + 0.25, 0.04, 'highpass', 9000);
     },
   };
 
@@ -404,7 +442,8 @@ const Sfx = (() => {
       ctx = off; master = off.createGain(); master.gain.value = 0.3; master.connect(off.destination);
       noiseBuf = off.createBuffer(1, off.sampleRate, off.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      try { fn({ tone, beamCharge, beamFire, Music, BEAM_LAYERS }); } finally { [ctx, master, noiseBuf] = saved; }
+      const layer = (type, t, dur) => { bus = ctx.createGain(); bus.gain.value = LAYER_GAIN[type] || 1; bus.connect(master); BEAM_LAYERS[type](t, dur, BEAM_PITCH[type] || 58); bus = null; };
+      try { fn({ tone, beamCharge, beamFire, Music, BEAM_LAYERS, layer }); } finally { [ctx, master, noiseBuf] = saved; }
     },
   };
 })();

@@ -50,6 +50,13 @@
       <div id="move-buttons"></div>
     </div>
 
+    <!-- Player 2 controls (2-player mode). Rotated 180° on touch screens so player 2 can sit across the table. -->
+    <div id="controls2" class="hidden">
+      <div id="stick-zone2"><div id="stick2"><div id="knob2"></div></div></div>
+      <button id="btn-swap2"><span class="nm">SWAP</span><span class="key">P</span><div class="cd"></div></button>
+      <div id="move-buttons2"></div>
+    </div>
+
     <!-- Screens -->
     <div class="screen" id="screen-title">
       <div class="logo">
@@ -58,6 +65,12 @@
         <div class="logo-bot">STADIUM</div>
       </div>
       <div class="opt-group">
+        <div class="opt-label">Mode</div>
+        <div class="seg" id="opt-mode">
+          <button data-v="1p" class="on">1P vs CPU</button><button data-v="2p">2 Players</button>
+        </div>
+      </div>
+      <div class="opt-group" id="grp-diff">
         <div class="opt-label">Difficulty</div>
         <div class="seg" id="opt-diff">
           <button data-v="easy">Easy</button><button data-v="normal" class="on">Normal</button><button data-v="hard">Hard</button>
@@ -82,14 +95,14 @@
         <li><b>Swap</b> monsters mid-fight with the SWAP button or <kbd>Q</kbd>. The battle keeps going while your next monster is thrown in, and swapping has an 8&nbsp;second cooldown.</li>
         <li><b>Dodge!</b> White circles mark where an attack will land. Beams charge before they fire.</li>
         <li><b>Types matter.</b> Super-effective hits deal double damage. Matching your monster's type adds a bonus.</li>
-        <li><b>Status:</b> PAR slows and may freeze you in place, BRN burns and weakens, FRZ locks you briefly.</li>
-        <li>Knock out all 6 enemy monsters to win. <kbd>P</kbd>/<kbd>Esc</kbd> pauses, <kbd>M</kbd> mutes.</li>
+        <li><b>Status:</b> PAR slows and may freeze you in place, BRN burns and weakens, PSN wears you down, FRZ locks you briefly.</li>
+        <li><b>2 Players</b> on one keyboard: Player 1 moves with <kbd>WASD</kbd>, attacks with <kbd>R</kbd> <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> and swaps with <kbd>Q</kbd>. Player 2 moves with the arrow keys, attacks with <kbd>I</kbd> <kbd>O</kbd> <kbd>K</kbd> <kbd>L</kbd> (or numpad <kbd>1</kbd>&ndash;<kbd>4</kbd>) and swaps with <kbd>P</kbd>. On a phone or tablet, Player 2 sits across the table and gets their own controls. Gamepads work too.</li> <kbd>Esc</kbd> pauses (also <kbd>P</kbd> in 1P), <kbd>M</kbd> mutes.</li>
       </ul>
       <button class="big-btn" id="btn-help-back">Got it</button>
     </div>
 
     <div class="screen hidden" id="screen-team">
-      <h2>Pick your team <span id="team-count">0/6</span></h2>
+      <h2><span id="team-title">Pick your team</span> <span id="team-count">0/6</span></h2>
       <div id="team-detail"></div>
       <div id="roster"></div>
       <div class="team-bar">
