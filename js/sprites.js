@@ -263,6 +263,29 @@ const MONSTER_ART = {
     g.rect(18, 9, 2, 2, '#5affff'); g.rect(24, 9, 2, 2, '#5affff');
   },
 
+  // Toshi, the owner's real-life Shiba Inu: red coat, cream mask and socks,
+  // white eyebrow spots, a big curled tail and his trademark smug half-closed eyes.
+  smugshi(g) {
+    const O = P('#d9792e', '#a8521c', '#f0a050');
+    const C = P('#fbf0dc', '#e4cfae', '#ffffff');
+    g.ellipse(26, 19, 4.5, 4.5, O, { edge: true });                                             // curled tail
+    g.ellipse(26.5, 18.5, 2.2, 2.2, C);                                                          // fluffy white curl
+    g.px(26, 18, '#a8521c');
+    g.ellipseM(11, 29, 2.5, 1.6, C, { edge: true });                                            // white socks
+    g.ellipse(16, 23, 8, 6.5, O, { edge: true });                                               // body
+    g.ellipse(16, 24.5, 4.5, 5, C);                                                             // cream chest
+    g.polyM([[9, 9], [8, 0], [14, 6]], O, { edge: true });                                      // pointy ears
+    g.polyM([[10, 7], [9, 3], [12, 6]], '#fbf0dc');                                             // cream inner ears
+    g.ellipse(16, 12, 8, 6.5, O, { edge: true });                                               // head
+    g.ellipse(16, 15, 5.5, 3.6, C);                                                             // cream muzzle and cheeks
+    g.ellipseM(9.5, 14, 1.6, 1.4, C);
+    g.pxM(11, 9, '#fbf0dc'); g.pxM(12, 9, '#fbf0dc');                                           // eyebrow spots
+    g.rectM(10, 11, 4, 1, OUTLINE);                                                             // smug half-closed lids
+    g.rectM(11, 12, 2, 1, DARK_EYE);
+    g.rect(15, 13, 2, 2, OUTLINE);                                                              // nose
+    g.px(14, 17, OUTLINE).px(15, 17, OUTLINE).px(16, 17, OUTLINE).px(17, 16, OUTLINE);          // smirk
+  },
+
   pixibelle(g) {
     const B = P('#ffc4dc', '#e88ab4', '#fff0f6');
     const Wn = P('#d8f4ff', '#a4d4f0', '#ffffff');

@@ -156,6 +156,11 @@ const MOVES = {
   dazzleBeam:   { name: 'Dazzle Beam', type: 'fairy', kind: 'beam', power: 240, cd: 5, charge: 0.4, dur: 0.6, width: 12, len: 270 },
   fairyWind:    { name: 'Fairy Wind', type: 'fairy', kind: 'projectile', power: 50, cd: 2, speed: 240, r: 4, count: 5, spread: 0.7 },
   wish:         { name: 'Wish', type: 'fairy', kind: 'heal', amount: 0.35, cd: 16 },
+  // Toshi (Smugshi): the owner's Shiba Inu
+  zoomies:      { name: 'Zoomies', type: 'normal', kind: 'dash', power: 170, cd: 2, speed: 430, dur: 0.35 },
+  shibaScream:  { name: 'Shiba Scream', type: 'normal', kind: 'burst', power: 230, cd: 5, r: 60, delay: 0.35, status: ['par', 0.3] },
+  smugBeam:     { name: 'Smug Beam', type: 'fairy', kind: 'beam', power: 250, cd: 5, charge: 0.45, dur: 0.6, width: 11, len: 280 },
+  blanketNap:   { name: 'Blanket Nap', type: 'normal', kind: 'heal', amount: 0.35, cd: 15 },
 };
 
 for (const k in MOVES) MOVES[k].id = k;   // lets moves be referenced by name over the network
@@ -211,6 +216,9 @@ const ROSTER = [
     moves: ['flashCannon', 'ironSlam', 'magnetStorm', 'ironDefense'] },
   { id: 'pixibelle', name: 'PIXIBELLE', types: ['fairy'],    hp: 940,  atk: 1.08, def: 0.96,  spd: 94,  size: 'M', item: 'pixieDust',
     moves: ['moonblast', 'dazzleBeam', 'fairyWind', 'wish'] },
+  // Toshi, the owner's real Shiba Inu: fast, smug, loves a blanket
+  { id: 'smugshi',   name: 'SMUGSHI',   types: ['normal', 'fairy'], hp: 1080, atk: 1.18, def: 1.0, spd: 110, size: 'M', item: 'snackPouch',
+    moves: ['zoomies', 'shibaScream', 'smugBeam', 'blanketNap'] },
 ];
 
 const ROSTER_BY_ID = Object.fromEntries(ROSTER.map(m => [m.id, m]));

@@ -21,7 +21,7 @@ const Backdrop = {
   init() {
     this.stage = buildStage('summit', 12345);
     this.flakes = Array.from({ length: 80 }, () => ({ x: Math.random() * W, y: Math.random() * H, v: 14 + Math.random() * 20, s: Math.random() < 0.25 ? 2 : 1 }));
-    this.mons = ['slumbear', 'sparkit', 'drakorn', 'cinderox'].map((id, i) => ({ id, x: 44 + i * 66, y: 440 + (i % 2) * 18, face: i % 2 ? -1 : 1 }));
+    this.mons = ['slumbear', 'sparkit', 'smugshi', 'cinderox'].map((id, i) => ({ id, x: 44 + i * 66, y: 440 + (i % 2) * 18, face: i % 2 ? -1 : 1 }));
   },
   render(dt, t) {
     ctx.setTransform(2, 0, 0, 2, 0, 0);
