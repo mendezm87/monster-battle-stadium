@@ -12,9 +12,34 @@ const Net = (() => {
   const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   const SNAP_GAP = 1 / 20;
 
+  // STUN servers let each browser learn its public address so the two can link
+  // directly. Some networks (mobile data especially) block direct links; those need
+  // a TURN relay. PeerJS's built-in relay is gone, so a relay has to be supplied:
+  // set TURN_URL to a provider endpoint that returns a JSON array of iceServers
+  // (e.g. Metered: https://<app>.metered.live/api/v1/turn/credentials?apiKey=<key>).
+  const STUN = [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+  ];
+  const TURN_URL = '';
+  const LINK_FAILED = 'Found the game, but could not link the two devices. Put both on the same Wi-Fi and try again; mobile data and some networks block direct connections.';
+
   let peer = null, conn = null, role = null;
   let onMessage = () => {}, onConnected = () => {}, onClosed = () => {};
   const r1 = v => Math.round(v * 10) / 10;
+
+  let iceCache = null;
+  async function peerOptions() {
+    if (!iceCache) {
+      let servers = STUN;
+      if (TURN_URL) {
+        try { servers = STUN.concat(await (await fetch(TURN_URL)).json()); }
+        catch (e) { console.warn('[net] no relay credentials', e); }
+      }
+      iceCache = servers;
+    }
+    return { config: { iceServers: iceCache } };
+  }
 
   // ---------------------------------------------------------- connection
   let libPromise = null;
@@ -28,12 +53,20 @@ const Net = (() => {
     }));
   }
 
+  // Until a connection opens it is only an attempt: if it fails, forget it (the
+  // host's room stays open for another try) instead of tearing everything down.
   function wire(c) {
     conn = c;
-    c.on('open', () => onConnected(role));
+    let opened = false;
+    const forget = () => { if (conn === c && !opened) conn = null; };
+    c.on('open', () => { opened = true; onConnected(role); });
     c.on('data', receive);
-    c.on('close', () => drop('Your opponent left.'));
-    c.on('error', e => { console.warn('[net]', e && (e.type || e.message), e); drop('The connection was lost.'); });
+    c.on('close', () => (opened ? drop('Your opponent left.') : forget()));
+    c.on('error', e => {
+      console.warn('[net]', e && (e.type || e.message), e);
+      if (opened) drop('The connection was lost.'); else forget();
+    });
+    c.on('iceStateChanged', s => { if (!opened && (s === 'failed' || s === 'closed')) forget(); });
   }
 
   function drop(reason) {
@@ -48,12 +81,13 @@ const Net = (() => {
   async function host() {
     leave();
     await loadLib();
+    const opts = await peerOptions();
     role = 'host';
     for (let tries = 0; tries < 4; tries++) {
       const code = Array.from({ length: 5 }, () => CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]).join('');
       try {
         await new Promise((res, rej) => {
-          peer = new Peer(PREFIX + code);
+          peer = new Peer(PREFIX + code, opts);
           peer.on('open', res);
           peer.on('error', rej);
         });
@@ -65,7 +99,8 @@ const Net = (() => {
         throw new Error('Could not reach the matchmaking server.');
       }
       peer.on('connection', c => {
-        if (conn) { c.on('open', () => c.close()); return; }   // room is full
+        if (conn && conn.open) { c.on('open', () => c.close()); return; }   // room is full
+        if (conn) conn.close();   // an earlier attempt that never opened: replace it
         wire(c);
       });
       peer.on('error', () => {});
@@ -79,19 +114,23 @@ const Net = (() => {
   async function join(code) {
     leave();
     await loadLib();
+    const opts = await peerOptions();
     role = 'guest';
     await new Promise((res, rej) => {
-      peer = new Peer();
+      peer = new Peer(opts);
       peer.on('open', res);
       peer.on('error', e => rej(e));
     }).catch(() => { leave(); throw new Error('Could not reach the matchmaking server.'); });
     return new Promise((res, rej) => {
-      const fail = msg => { leave(); rej(new Error(msg)); };
-      const timer = setTimeout(() => fail('Could not connect. Check the code, or the host\'s network may block direct connections.'), 15000);
-      peer.on('error', e => { clearTimeout(timer); fail(e.type === 'peer-unavailable' ? 'No game with that code.' : 'The connection failed.'); });
+      let done = false;
+      const fail = msg => { if (done) return; done = true; clearTimeout(timer); leave(); rej(new Error(msg)); };
+      const timer = setTimeout(() => fail(LINK_FAILED), 20000);
+      peer.on('error', e => fail(e.type === 'peer-unavailable' ? 'No game with that code. Check it, and keep the game open on the host\'s screen.' : LINK_FAILED));
       const c = peer.connect(PREFIX + code.toUpperCase(), { reliable: true, serialization: 'json' });
       wire(c);
-      c.on('open', () => { clearTimeout(timer); res(); });
+      // the room was found but no route between the devices works: say so right away
+      c.on('iceStateChanged', s => { if (s === 'failed') fail(LINK_FAILED); });
+      c.on('open', () => { if (done) return; done = true; clearTimeout(timer); res(); });
     });
   }
 
@@ -329,7 +368,7 @@ const Net = (() => {
   return {
     host, join, leave, send, battleOptions, attach, hostTick, guestFrame,
     get role() { return role; },
-    get active() { return !!conn; },
+    get active() { return !!(conn && conn.open); },
     set onMessage(f) { onMessage = f; }, set onConnected(f) { onConnected = f; }, set onClosed(f) { onClosed = f; },
   };
 })();

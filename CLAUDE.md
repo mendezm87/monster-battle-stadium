@@ -47,6 +47,8 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 
 There is no test suite. Check changes in headless Chromium through Playwright (installed globally):
 
+- **Always test with the sound off.** Right after every page load, run `if (!Sfx.muted) toggleMute()` (mute resets on reload). Offline audio renders for level checks are silent and fine.
+
 - Serve the repo with `python3 -m http.server 8137`. `window.__MBS` exposes app state (`__MBS.battle`).
 - To bot-play a whole battle, override `Input.dir(p)`/`Input.moves(p)` so they drive an `AI` on the player's side (and on player 2's side in 2P). Stepping `battle.update(1/60)` in a loop runs a battle in well under a second; stub `UI.pickNext` to auto-pick. Watch for page errors and check battle length (a 6v6 runs about 50–140 s with hard bots).
 - Balance check: a 1v1 round robin of every monster with hard bots on both sides. After adding the 6 new monsters, every one of them won 40–66% of its 1v1s. The original 12 range from Shadefang at ~21% to Mindra at ~71%, so hard bots favour ranged kits.
@@ -55,7 +57,7 @@ There is no test suite. Check changes in headless Chromium through Playwright (i
 
 ## Open ideas (not decided)
 
-- A TURN relay (or a small hosted server) so online play also works on networks that block direct WebRTC connections.
+- **A TURN relay for online play.** PeerJS's built-in relay (`*.turn.peerjs.com`) no longer resolves, and the free Open Relay shared login stopped working, so today online play only works when the two devices can link directly (same Wi-Fi is the safe bet; mobile data often fails). `js/net.js` has a `TURN_URL` hook: set it to a provider endpoint that returns a JSON `iceServers` array (e.g. a free Metered.ca app's credentials URL) and relays are used automatically. This needs the owner to create the provider account.
 - Online play from the claude.ai artifact hasn't been tried; its sandbox may block the PeerJS server. GitHub Pages is the safe host for online play.
 - Rebalance the weakest originals (Shadefang, Sparkit, Frostling) if human play agrees with the bot round robin.
 - Gamepad support is written to the standard mapping but hasn't been tried with real hardware yet.

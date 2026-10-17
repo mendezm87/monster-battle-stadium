@@ -31,7 +31,7 @@ Moves auto-aim at your opponent; the skill is in positioning and dodging.
 
 Pick **Online** on the title screen. One player presses **Host** and shares the 5-letter code; the other types it in and presses **Join**. Each of you picks a team, and each of you sees the arena from your own side, with your monster at the bottom. Controls are the normal 1-player ones.
 
-The host's browser runs the battle; the guest's screen shows what the host sends, about 20 times a second. Players connect directly (WebRTC), using the free PeerJS matchmaking server to find each other. Some strict networks (certain office, school or mobile-carrier networks) block direct connections; if joining times out, try another network.
+The host's browser runs the battle; the guest's screen shows what the host sends, about 20 times a second. Players connect directly (WebRTC), using the free PeerJS matchmaking server to find each other. Some networks block direct connections, mobile data especially; if joining says it could not link the two devices, put both on the same Wi-Fi and try again.
 
 ### 2 players
 
