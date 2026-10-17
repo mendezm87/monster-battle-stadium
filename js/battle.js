@@ -41,7 +41,7 @@ class Mon {
     this.r = def.size === 'L' ? 17 : 12;
     this.h = SPRITES[def.id].size * SPR_SCALE;
     this.moves = def.moves.map(k => MOVES[k]);
-    const melee = this.moves.filter(m => m.kind === 'dash' || m.kind === 'burst').length;
+    const melee = this.moves.filter(m => m.kind === 'dash' || m.kind === 'burst' || m.kind === 'vortex').length;
     const ranged = this.moves.filter(m => ['projectile', 'beam', 'zone'].includes(m.kind)).length;
     this.prefRange = melee > ranged ? 45 : melee === ranged ? 85 : 125;
     this.fainted = false;
@@ -131,7 +131,8 @@ class AI {
       if (me.cd[i] > 0) return;
       let ok = false, w = mv.power || 0;
       switch (mv.kind) {
-        case 'projectile': ok = d < 280; break;
+        case 'projectile': ok = d < (mv.boomerang ? mv.range + 30 : 280); break;
+        case 'vortex': ok = d < mv.r - 6; w *= 1.3; break;
         case 'beam': ok = d < mv.len - 20; w *= 1.1; break;
         case 'dash': ok = d < mv.speed * mv.dur + me.r + foe.r; w *= 1.2; break;
         case 'burst': ok = d < mv.r + foe.r * 0.5 - 4; w *= 1.4; break;
@@ -166,7 +167,8 @@ class AI {
     }
     if (best) return best;
     for (const z of b.zones) {
-      if (z.owner === me || z.done) continue;
+      // incoming strikes, and lingering pools that are still active
+      if (z.owner === me || (z.done && !z.mv.linger)) continue;
       const dd = Math.hypot(me.x - z.x, me.y - z.y);
       if (dd < z.r + me.r + 8) return dd > 0.5 ? { x: (me.x - z.x) / dd, y: (me.y - z.y) / dd } : { x: 1, y: 0 };
     }
@@ -177,9 +179,9 @@ class AI {
         const side = Math.sign((me.x - foe.x) * cy - (me.cy - foe.cy) * cx) || 1;
         return { x: cy * side, y: -cx * side };
       }
-      if (a.kind === 'burst') {
+      if (a.kind === 'burst' || a.kind === 'vortex') {   // get out of the blast or the pull
         const dd = dist(me, foe) || 1;
-        if (dd < a.mv.r + 18) return { x: (me.x - foe.x) / dd, y: (me.y - foe.y) / dd };
+        if (dd < a.mv.r + (a.kind === 'vortex' ? 30 : 18)) return { x: (me.x - foe.x) / dd, y: (me.y - foe.y) / dd };
       }
     }
     return null;
@@ -377,10 +379,12 @@ class Battle {
             x: m.x + Math.cos(a) * m.r, y: m.cy + Math.sin(a) * m.r,
             vx: Math.cos(a) * mv.speed, vy: Math.sin(a) * mv.speed,
             r: mv.r || 4, mv, owner: m, life: 2.6, spin: rand(0, TAU), k: m.y - m.cy,
+            // boomerangs fly out `range`, then home back to the thrower
+            out: mv.boomerang ? mv.range / mv.speed : 0, back: false, hitCd: 0,
           });
         }
         m.action = { kind: 'cast', t: 0, dur: 0.18, lock: true };
-        Sfx.play('shoot');
+        Sfx.play(mv.boomerang ? 'whoosh' : 'shoot');
         break;
       }
       case 'beam':
@@ -388,8 +392,12 @@ class Battle {
         Sfx.beamCharge(mv.charge);
         break;
       case 'dash':
-        m.action = { kind: 'dash', t: 0, mv, dir, lock: true, hit: false };
+        m.action = { kind: 'dash', t: 0, mv, dir, lock: true, hit: false, id: _uid++ };
         Sfx.play('dash');
+        break;
+      case 'vortex':
+        m.action = { kind: 'vortex', t: 0, mv, dir, lock: true, tick: 0, id: _uid++ };
+        Sfx.play('vortex');
         break;
       case 'burst':
         m.action = { kind: 'burst', t: 0, mv, dir, lock: true, done: false };
@@ -403,7 +411,7 @@ class Battle {
           this.zones.push({
             x: clamp(foe.x + Math.cos(a) * rr, FIELD.x0 + 8, FIELD.x1 - 8),
             y: clamp(foe.y + Math.sin(a) * rr, FIELD.y0 + 8, FIELD.y1 - 8),
-            r: mv.r, t: 0, delay: mv.delay + k * 0.18, mv, owner: m, done: false,
+            r: mv.r, t: 0, delay: mv.delay + k * 0.18, mv, owner: m, done: false, tick: 0, id: _uid++,
           });
         }
         m.action = { kind: 'cast', t: 0, dur: 0.25, lock: true };
@@ -435,7 +443,8 @@ class Battle {
     }
   }
 
-  // Apply damage. mult scales power (beam ticks), opts.merge groups numbers.
+  // Apply damage. mult scales power (beam ticks), opts.merge groups numbers,
+  // opts.kb sets the knockback direction and opts.force overrides its strength.
   hit(src, tgt, mv, mult = 1, opts = {}) {
     if (!tgt.visible || tgt.fainted || tgt.invuln > 0) return 0;
     const eff = typeEffect(mv.type, tgt.def.types);
@@ -450,7 +459,7 @@ class Battle {
 
     const fresh = this.number(tgt, dmg, opts.merge);
     const kb = opts.kb ?? Math.atan2(tgt.cy - src.cy, tgt.x - src.x);
-    const force = mult < 1 ? 22 : Math.min(260, 60 + dmg * 0.45);
+    const force = opts.force ?? (mult < 1 ? 22 : Math.min(260, 60 + dmg * 0.45));
     tgt.kx += Math.cos(kb) * force; tgt.ky += Math.sin(kb) * force;
 
     const fx = TYPES[mv.type].fx;
@@ -467,6 +476,17 @@ class Battle {
 
     if (mv.status && Math.random() < mv.status[1] * Math.min(1, mult * 3)) this.applyStatus(tgt, mv.status[0]);
     if (mv.slow) tgt.slowT = Math.max(tgt.slowT, mv.slow);
+    // drain: the attacker heals for part of the damage it dealt
+    if (mv.drain && !src.fainted && src.hp > 0) {
+      const heal = Math.round(Math.min(dmg * mv.drain, src.maxHp - src.hp));
+      if (heal > 0) {
+        src.hp += heal;
+        this.number(src, heal, opts.merge ? 'drain' + opts.merge : null, '#b6ff9a', '#4fae2e', '+');
+        this.particles.push({ x: tgt.x, y: tgt.cy, x2: src.x, y2: src.cy, k2: src.y - src.cy, life: 0.25, max: 0.25, color: '#b6ff9a', kind: 'line' });
+        this.burst(src.x, src.cy, ['#4fae2e', '#b6ff9a'], 8, 40, -40);
+        Sfx.play('drain');
+      }
+    }
     if (tgt.hp <= 0) this.faint(tgt);
     return dmg;
   }
@@ -588,7 +608,7 @@ class Battle {
 
     const lock = (m.action && m.action.lock) || m.stunT > 0 || m.status === 'frz';
     const a = m.action;
-    if (a && a.kind === 'dash' && a.t > 0.1) {
+    if (a && a.kind === 'dash' && a.t > 0.1 && a.phase !== 'combo') {
       m.vx = Math.cos(a.dir) * a.mv.speed; m.vy = Math.sin(a.dir) * a.mv.speed;
     } else {
       const spd = m.speed();
@@ -647,12 +667,34 @@ class Battle {
 
       case 'dash': {
         const mv = a.mv;
+        // combo: after connecting, stay on the target and land the rest of the hits
+        if (a.phase === 'combo') {
+          const d = Math.hypot(foe.x - m.x, foe.y - m.y) || 1;
+          if (d > m.r + foe.r) { m.x += (foe.x - m.x) / d * 90 * dt; m.y += (foe.y - m.y) / d * 90 * dt; }
+          a.tick -= dt;
+          if (a.tick <= 0) {
+            if (a.left <= 0 || d > m.r + foe.r + 16 || !foe.visible || foe.fainted) { m.action = null; break; }
+            a.left--;
+            const last = a.left === 0;
+            // light jabs keep the target close; the last hit knocks it away
+            this.hit(m, foe, mv, 1, { kb: Math.atan2(foe.y - m.y, foe.x - m.x), merge: a.id, force: last ? undefined : 35 });
+            if (m.fainted || !m.action) return;
+            a.tick = 0.13;
+            if (last) { m.action = null; this.decalAt(foe.x, foe.y, 8); }
+          }
+          break;
+        }
         if (a.t <= 0.1) { if (a.t < 0.03) a.dir = this.aim(m, foe, mv); break; }
         m.ghostT -= dt;
         if (m.ghostT <= 0) { m.ghostT = 0.03; m.ghosts.push({ x: m.x, y: m.y, face: m.face, t: 0.22, color: fx[1] }); }
         if (Math.random() < 0.7) this.particles.push({ x: m.x + rand(-6, 6), y: m.cy + rand(-6, 6), vx: -m.vx * 0.2, vy: -m.vy * 0.2, life: 0.3, max: 0.3, size: 2, color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
         if (!a.hit && Math.hypot(m.x - foe.x, m.cy - foe.cy) < m.r + foe.r + 4) {
           a.hit = true;
+          if (mv.hits > 1) {   // a combo: stop here and start hitting
+            a.phase = 'combo'; a.left = mv.hits; a.tick = 0;
+            m.vx = m.vy = 0;
+            break;
+          }
           const dealt = this.hit(m, foe, mv, 1, { kb: a.dir });
           if (mv.recoil && dealt && !m.fainted) {
             const rc = Math.round(dealt * mv.recoil);
@@ -684,6 +726,32 @@ class Battle {
           if (m.fainted) return;
         }
         if (a.t >= mv.delay + 0.15) m.action = null;
+        break;
+      }
+
+      // vortex: the user stands still and drags the opponent in, grinding it while it's caught
+      case 'vortex': {
+        const mv = a.mv;
+        if (Math.random() < 0.9) {   // debris spiralling inward
+          const ang = rand(0, TAU), rr = rand(0.5, 1) * mv.r;
+          const px = m.x + Math.cos(ang) * rr, py = m.y + Math.sin(ang) * rr * 0.7;
+          this.particles.push({ x: px, y: py - 3, g: py, vx: (m.x - px) * 1.6 - Math.sin(ang) * 70, vy: (m.y - py) * 1.6 + Math.cos(ang) * 50,
+            life: 0.45, max: 0.45, size: rand(1, 2.5), color: fx[rand() < 0.5 ? 1 : 2], kind: 'sq' });
+        }
+        const dx = m.x - foe.x, dy = m.y - foe.y, d = Math.hypot(dx, dy) || 1;
+        if (foe.visible && !foe.fainted && d < mv.r + foe.r) {
+          if (d > m.r + foe.r) {
+            foe.x = clamp(foe.x + dx / d * mv.pull * dt, FIELD.x0 + foe.r, FIELD.x1 - foe.r);
+            foe.y = clamp(foe.y + dy / d * mv.pull * dt, FIELD.y0 + foe.r, FIELD.y1 - 2);
+          }
+          a.tick -= dt;
+          if (a.tick <= 0) {
+            a.tick = 0.25;
+            this.hit(m, foe, mv, 0.25 / mv.dur, { merge: a.id, kb: Math.atan2(dy, dx), force: 0 });
+            if (m.fainted || !m.action) return;
+          }
+        }
+        if (a.t >= mv.dur) m.action = null;
         break;
       }
     }
@@ -720,11 +788,21 @@ class Battle {
         const sp = Math.hypot(p.vx, p.vy);
         p.vx = Math.cos(cur + turn) * sp; p.vy = Math.sin(cur + turn) * sp;
       }
+      if (p.mv.boomerang) {
+        p.hitCd -= dt;
+        if (!p.back && (p.out -= dt) <= 0) p.back = true;
+        if (p.back) {   // home in on the thrower; caught when it gets back
+          const o = p.owner, sp = Math.hypot(p.vx, p.vy), a = Math.atan2(o.cy - p.y, o.x - p.x);
+          p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp;
+          if (!o.visible || o.fainted || Math.hypot(o.x - p.x, o.cy - p.y) < o.r + p.r) { p.life = -1; p.dead = true; }
+        }
+      }
       p.x += p.vx * dt; p.y += p.vy * dt;
       const fx = TYPES[p.mv.type].fx;
       if (Math.random() < 0.9) this.particles.push({ x: p.x + rand(-1, 1) * p.r * 0.5, y: p.y + rand(-1, 1) * p.r * 0.5, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.25, max: 0.25, size: Math.max(1, p.r * 0.6), color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
-      if (foe && foe.visible && !foe.fainted && Math.hypot(p.x - foe.x, p.y - foe.cy) < p.r + foe.r) {
-        p.life = -1;
+      if (p.life > 0 && !(p.hitCd > 0) && foe && foe.visible && !foe.fainted && Math.hypot(p.x - foe.x, p.y - foe.cy) < p.r + foe.r) {
+        // a boomerang cuts through and can hit again on the way back
+        if (p.mv.boomerang) p.hitCd = 0.35; else p.life = -1;
         if (p.mv.explode) {
           this.particles.push({ x: p.x, y: p.y, g: p.y + p.k, r0: 4, r1: p.mv.explode, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
           this.burst(p.x, p.y, fx, 26, 140);
@@ -744,7 +822,7 @@ class Battle {
     for (const z of this.zones) {
       z.t += dt;
       if (!z.done && z.t >= z.delay) {
-        z.done = true;
+        z.done = true; z.tick = 0.5;   // a pool's first tick comes after the landing hit
         const fx = TYPES[z.mv.type].fx;
         if (z.mv.fx === 'bolt') { this.particles.push({ x: z.x, y: z.y, life: 0.25, max: 0.25, kind: 'bolt', color: fx[1], seed: Math.random() }); Sfx.play('zap'); }
         else Sfx.play('boom');
@@ -757,9 +835,18 @@ class Battle {
           this.hit(z.owner, foe, z.mv, 1, { kb: Math.atan2(foe.y - z.y, foe.x - z.x) });
           if (this.state !== 'fight') return;
         }
+      } else if (z.done && z.mv.linger) {
+        // a lingering pool keeps hurting whoever stands in it
+        z.tick -= dt;
+        const foe = this.foe(z.owner);
+        if (z.tick <= 0 && foe && foe.visible && !foe.fainted && Math.hypot(foe.x - z.x, foe.y - z.y) < z.r + foe.r * 0.5) {
+          z.tick = 0.5;
+          this.hit(z.owner, foe, z.mv, z.mv.tick, { merge: z.id, force: 0 });
+          if (this.state !== 'fight') return;
+        }
       }
     }
-    this.zones = this.zones.filter(z => z.t < z.delay + 0.05);
+    this.zones = this.zones.filter(z => z.t < z.delay + (z.mv.linger || 0) + 0.05);
   }
 
   updateBalls(dt) {
@@ -992,7 +1079,24 @@ class Battle {
     const pulse = 0.55 + Math.sin(this.time * 14) * 0.2;
     ctx.lineWidth = 1.5;
     for (const z of this.zones) {
-      if (z.done) continue;
+      if (z.done) {
+        if (!z.mv.linger) continue;
+        // lingering pool: fades in and out, with bubbles popping across it
+        const age = z.t - z.delay, left = z.mv.linger - age;
+        const fade = clamp(Math.min(age / 0.15, left / 0.4), 0, 1);
+        const zx = this.sx(z.x), zy = this.sy(z.y), fx = TYPES[z.mv.type].fx;
+        ctx.globalAlpha = 0.38 * fade; ctx.fillStyle = fx[0];
+        ctx.beginPath(); ctx.ellipse(zx, zy, z.r, z.r * 0.7, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.7 * fade; ctx.strokeStyle = fx[1]; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.ellipse(zx, zy, z.r * (0.95 + Math.sin(this.time * 6) * 0.03), z.r * 0.68, 0, 0, TAU); ctx.stroke();
+        for (let i = 0; i < 5; i++) {
+          const ph = (this.time * 1.3 + i * 0.37 + z.id * 0.11) % 1;
+          const a = i * 2.4 + z.id, rr = z.r * 0.6 * ((i * 0.37 + z.id * 0.07) % 1);
+          ctx.globalAlpha = (1 - ph) * fade; ctx.strokeStyle = fx[2]; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(zx + Math.cos(a) * rr, zy + Math.sin(a) * rr * 0.7, 1 + ph * 3, 0, TAU); ctx.stroke();
+        }
+        continue;
+      }
       const k = clamp(z.t / z.delay, 0, 1), zx = this.sx(z.x), zy = this.sy(z.y);
       ctx.fillStyle = TYPES[z.mv.type].fx[0];
       ctx.globalAlpha = 0.18 + k * 0.2;
@@ -1025,6 +1129,19 @@ class Battle {
         ctx.beginPath(); ctx.moveTo(X, cy);
         ctx.lineTo(X + Math.cos(dir) * a.mv.len, cy + Math.sin(dir) * a.mv.len); ctx.stroke();
         ctx.setLineDash([]); ctx.lineWidth = 1.5;
+      }
+      if (a.kind === 'vortex') {
+        // swirling dashed rings marking the pull radius
+        const fx = TYPES[a.mv.type].fx, fade = clamp(Math.min(a.t / 0.12, (a.mv.dur - a.t) / 0.2), 0, 1);
+        ctx.globalAlpha = 0.16 * fade; ctx.fillStyle = fx[0];
+        ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r, a.mv.r * 0.7, 0, 0, TAU); ctx.fill();
+        ctx.lineWidth = 1.5;
+        for (const [sc, spd, col] of [[1, 1, fx[2]], [0.66, -1.6, fx[1]], [0.33, 2.4, fx[2]]]) {
+          ctx.globalAlpha = 0.75 * fade; ctx.strokeStyle = col;
+          ctx.setLineDash([7, 5]); ctx.lineDashOffset = this.time * 40 * spd;
+          ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r * sc, a.mv.r * sc * 0.7, 0, 0, TAU); ctx.stroke();
+        }
+        ctx.setLineDash([]); ctx.lineDashOffset = 0;
       }
       if (a.kind === 'dash' && a.t <= 0.1) {
         ctx.globalAlpha = 0.5; ctx.strokeStyle = TYPES[a.mv.type].fx[2];
@@ -1107,6 +1224,15 @@ class Battle {
   drawProjectile(ctx, p) {
     const fx = TYPES[p.mv.type].fx, t = p.mv.type;
     const px = this.sx(p.x), py = this.sy(p.y, p.k ?? 19);
+    if (p.mv.boomerang) {   // a spinning crescent blade
+      ctx.save(); ctx.translate(px, py); ctx.rotate(p.spin * 1.7);
+      ctx.fillStyle = fx[1];
+      ctx.beginPath(); ctx.arc(0, 0, p.r * 1.7, 0, Math.PI * 1.25); ctx.arc(p.r * 0.6, -p.r * 0.2, p.r * 1.1, Math.PI * 1.25, 0, true);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = fx[2]; ctx.lineWidth = 1; ctx.stroke();
+      ctx.restore();
+      return;
+    }
     if (t === 'grass') {
       ctx.save(); ctx.translate(px, py); ctx.rotate(p.spin);
       ctx.fillStyle = fx[1]; ctx.beginPath(); ctx.moveTo(-p.r * 1.4, 0); ctx.lineTo(0, -p.r * 0.7); ctx.lineTo(p.r * 1.4, 0); ctx.lineTo(0, p.r * 0.7); ctx.closePath(); ctx.fill();

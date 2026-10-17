@@ -60,6 +60,31 @@ const Sfx = (() => {
     ball() { tone(380, 0.18, 'sine', 0.18, 500); },
     pop() { noise(0.12, 0.25, 3000); tone(900, 0.08, 'square', 0.08); },
     faint() { tone(500, 0.7, 'triangle', 0.22, -420); },
+    // boomerang throw: an airy swoosh rising in pitch
+    whoosh() {
+      const t = ctx.currentTime;
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noiseBuf; f.type = 'bandpass'; f.Q.value = 4;
+      f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3000, t + 0.25);
+      g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.75, t + 0.06); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + 0.32);
+    },
+    // vortex: a swirling roar whose filter circles round and round, winding down
+    vortex() {
+      const t = ctx.currentTime, dur = 1.4;
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noiseBuf; s.loop = true; f.type = 'bandpass'; f.Q.value = 5; f.frequency.value = 700;
+      const l = ctx.createOscillator(), lg = ctx.createGain();
+      l.frequency.setValueAtTime(6, t); l.frequency.linearRampToValueAtTime(2, t + dur); lg.gain.value = 450;
+      l.connect(lg).connect(f.frequency);
+      g.gain.setValueAtTime(0.001, t); g.gain.exponentialRampToValueAtTime(0.45, t + 0.15);
+      g.gain.setValueAtTime(0.45, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      s.connect(f).connect(g).connect(master);
+      for (const n of [s, l]) { n.start(t); n.stop(t + dur + 0.05); }
+      tone(90, dur, 'sine', 0.12, -30);
+    },
+    // drain: a quick upward "sip"
+    drain() { tone(330, 0.12, 'triangle', 0.1, 400); tone(660, 0.1, 'sine', 0.06, 500, 0.05); },
     // Smugshi's Shiba Scream: a dramatic, wobbling "AAAAAH!". A buzzy voice is
     // shaped into an "ah" vowel by three formant filters, scoops up into the
     // scream, warbles, cracks upward and gives out, over a hoarse breath.

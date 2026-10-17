@@ -291,7 +291,7 @@ const Net = (() => {
       sc: [r1(b.swapCd.player), r1(b.swapCd.enemy)], ko: [b.kos.player, b.kos.enemy],
       tp: b.p.map(lite), te: b.e.map(lite), P: full(b.P), E: full(b.E),
       pr: b.projectiles.map(p => [r1(p.x), r1(p.y), r1(p.vx), r1(p.vy), p.r, p.mv.id, r1(p.spin), p.owner.side === 'player' ? 0 : 1, r1(p.k)]),
-      zo: b.zones.map(z => [r1(z.x), r1(z.y), z.r, +z.t.toFixed(3), z.delay, z.mv.id, z.done ? 1 : 0]),
+      zo: b.zones.map(z => [r1(z.x), r1(z.y), z.r, +z.t.toFixed(3), z.delay, z.mv.id, z.done ? 1 : 0, z.id || 0]),
       ba: b.balls.map(x => [x.side, +x.t.toFixed(3), x.dur, r1(x.to.x), r1(x.to.y)]),
       fl: b.floats.map(f => [f.val, r1(f.x), r1(f.y), r1(f.g), +f.t.toFixed(3), f.fill, f.shade, f.prefix]),
       tx: b.texts.map(t => [r1(t.x), r1(t.y), r1(t.g), t.str, t.color, +t.t.toFixed(3)]),
@@ -336,7 +336,7 @@ const Net = (() => {
     s.te.forEach((x, i) => applyLite(b.e[i], x));
     applyMon(b.P, s.P); applyMon(b.E, s.E);
     b.projectiles = s.pr.map(([x, y, vx, vy, r, id, spin, side, k]) => ({ x, y, vx, vy, r, mv: MOVES[id], spin, owner: side ? b.E : b.P, k, life: 1 }));
-    b.zones = s.zo.map(([x, y, r, t, delay, id, done]) => ({ x, y, r, t, delay, mv: MOVES[id], done: !!done }));
+    b.zones = s.zo.map(([x, y, r, t, delay, id, done, zid]) => ({ x, y, r, t, delay, mv: MOVES[id], done: !!done, id: zid }));
     b.balls = s.ba.map(([side, t, dur, x, y]) => ({ side, t, dur, from: TRAINER_POS[side], to: { x, y } }));
     b.floats = s.fl.map(([val, x, y, g, t, fill, shade, prefix]) => ({ val, x, y, g, t, img: numImg((prefix || '') + val, fill, shade) }));
     b.texts = s.tx.map(([x, y, g, str, color, t]) => ({ x, y, g, str, color, t }));

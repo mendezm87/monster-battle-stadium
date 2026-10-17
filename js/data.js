@@ -62,14 +62,21 @@ function typeEffect(moveType, defTypes) {
   zone        - marked circles land on/near the target after a delay
   buff        - temporary stat multiplier
   heal        - restores a fraction of max HP
+  vortex      - the user stands still and pulls the opponent in (`pull` px/s) inside `r`, grinding it for `dur`
+ Modifiers that work on any damaging kind:
+  drain: f      - the attacker heals f x the damage dealt
+  boomerang     - (projectile) flies out `range`, then returns to the thrower, hitting on both passes
+  hits: n       - (dash) on contact, stays on the target and lands n hits of `power` each
+  linger: s     - (zone) leaves a pool for s seconds that hits for `tick` x power every 0.5 s
  status: [kind, chance]  (par / brn / frz / psn)
- Every type has at least one beam move.
+ Not every monster needs a beam; some types have none.
 */
 const MOVES = {
   // electric
   voltRush:     { name: 'Volt Rush', type: 'electric', kind: 'dash', power: 300, cd: 5, speed: 330, dur: 0.4, recoil: 0.2, status: ['par', 0.3] },
   thunderbolt:  { name: 'Thunderbolt', type: 'electric', kind: 'projectile', power: 150, cd: 2.2, speed: 250, r: 5, status: ['par', 0.15] },
   thunder:      { name: 'Thunder', type: 'electric', kind: 'zone', power: 270, cd: 6, r: 24, delay: 0.85, status: ['par', 0.3], fx: 'bolt' },
+  staticSiphon: { name: 'Static Siphon', type: 'electric', kind: 'projectile', power: 105, cd: 3.5, speed: 240, r: 6, drain: 0.5 },
   discharge:    { name: 'Discharge', type: 'electric', kind: 'burst', power: 220, cd: 5, r: 62, delay: 0.45, status: ['par', 0.3] },
   voltCannon:   { name: 'Volt Cannon', type: 'electric', kind: 'beam', power: 260, cd: 6, charge: 0.55, dur: 0.5, width: 10, len: 280, status: ['par', 0.4] },
   // normal
@@ -85,7 +92,7 @@ const MOVES = {
   hydroCannon:  { name: 'Hydro Cannon', type: 'water', kind: 'beam', power: 320, cd: 6.5, charge: 0.5, dur: 0.7, width: 12, len: 270 },
   bubbleBeam:   { name: 'Bubble Spray', type: 'water', kind: 'projectile', power: 55, cd: 2, speed: 170, r: 4, count: 5, spread: 0.5, slow: 1.5 },
   aquaJet:      { name: 'Aqua Jet', type: 'water', kind: 'dash', power: 115, cd: 2.2, speed: 410, dur: 0.25 },
-  whirlpool:    { name: 'Whirlpool', type: 'water', kind: 'zone', power: 190, cd: 6, r: 34, delay: 0.9, slow: 2.5 },
+  whirlpool:    { name: 'Whirlpool', type: 'water', kind: 'vortex', power: 350, cd: 6, r: 100, dur: 1.4, pull: 115 },
   // grass
   razorLeaf:    { name: 'Razor Leaf', type: 'grass', kind: 'projectile', power: 90, cd: 1.8, speed: 255, r: 4, count: 2, spread: 0.15 },
   solarBeam:    { name: 'Solar Beam', type: 'grass', kind: 'beam', power: 420, cd: 9, charge: 1.0, dur: 0.8, width: 16, len: 320 },
@@ -94,9 +101,9 @@ const MOVES = {
   cottonGuard:  { name: 'Cotton Guard', type: 'grass', kind: 'buff', buff: { def: 1.8 }, dur: 7, cd: 15 },
   // ground
   heavyStomp:   { name: 'Heavy Stomp', type: 'ground', kind: 'burst', power: 210, cd: 5, r: 52, delay: 0.5 },
+  quicksand:    { name: 'Quicksand', type: 'ground', kind: 'zone', power: 110, cd: 6, r: 36, delay: 0.8, linger: 3, tick: 0.3, slow: 1.2 },
   quake:        { name: 'Quake', type: 'ground', kind: 'burst', power: 300, cd: 8, r: 92, delay: 0.8 },
   mudShot:      { name: 'Mud Shot', type: 'ground', kind: 'projectile', power: 110, cd: 2, speed: 210, r: 5, slow: 2 },
-  sandBlast:    { name: 'Sand Blaster', type: 'ground', kind: 'beam', power: 280, cd: 6, charge: 0.5, dur: 0.7, width: 14, len: 230, slow: 2 },
   // ice
   iceShard:     { name: 'Ice Shard', type: 'ice', kind: 'projectile', power: 85, cd: 1.3, speed: 330, r: 3 },
   frostRay:     { name: 'Frost Ray', type: 'ice', kind: 'beam', power: 240, cd: 5.5, charge: 0.4, dur: 0.6, width: 9, len: 270, status: ['frz', 0.2] },
@@ -110,7 +117,6 @@ const MOVES = {
   // rock
   rockSlide:    { name: 'Rock Slide', type: 'rock', kind: 'zone', power: 145, cd: 4, r: 20, delay: 0.7, count: 4, scatter: 40, fx: 'rock' },
   rollout:      { name: 'Rollout', type: 'rock', kind: 'dash', power: 185, cd: 3.2, speed: 280, dur: 0.55 },
-  powerGem:     { name: 'Power Gem', type: 'rock', kind: 'beam', power: 250, cd: 5, charge: 0.4, dur: 0.5, width: 10, len: 270 },
   // psychic
   psybeam:      { name: 'Psybeam', type: 'psychic', kind: 'beam', power: 210, cd: 4, charge: 0.35, dur: 0.5, width: 9, len: 270, slow: 2 },
   mindOrbs:     { name: 'Mind Orbs', type: 'psychic', kind: 'projectile', power: 120, cd: 2.4, speed: 165, r: 5, count: 2, spread: 0.7, homing: 2.6 },
@@ -129,18 +135,18 @@ const MOVES = {
   bulkUp:       { name: 'Bulk Up', type: 'fighting', kind: 'buff', buff: { atk: 1.3, def: 1.3 }, dur: 8, cd: 15 },
   // flying
   airSlash:     { name: 'Air Slash', type: 'flying', kind: 'projectile', power: 75, cd: 1.7, speed: 300, r: 4, count: 3, spread: 0.35 },
+  razorGale:    { name: 'Razor Gale', type: 'flying', kind: 'projectile', power: 100, cd: 3.5, speed: 290, r: 6, boomerang: true, range: 170 },
   braveDive:    { name: 'Brave Dive', type: 'flying', kind: 'dash', power: 260, cd: 4.5, speed: 380, dur: 0.35, recoil: 0.15 },
-  cycloneRay:   { name: 'Cyclone Ray', type: 'flying', kind: 'beam', power: 260, cd: 5.5, charge: 0.45, dur: 0.7, width: 14, len: 280 },
   tailwind:     { name: 'Tailwind', type: 'flying', kind: 'buff', buff: { spd: 1.35, atk: 1.15 }, dur: 8, cd: 15 },
   // poison
   sludgeBomb:   { name: 'Sludge Bomb', type: 'poison', kind: 'projectile', power: 200, cd: 3.5, speed: 185, r: 7, explode: 28, status: ['psn', 0.3] },
-  toxicPool:    { name: 'Toxic Pool', type: 'poison', kind: 'zone', power: 140, cd: 5.5, r: 32, delay: 0.9, slow: 2, status: ['psn', 0.35] },
+  toxicPool:    { name: 'Toxic Pool', type: 'poison', kind: 'zone', power: 120, cd: 6, r: 32, delay: 0.9, slow: 1.2, linger: 3, tick: 0.25, status: ['psn', 0.35] },
   acidSpray:    { name: 'Acid Spray', type: 'poison', kind: 'projectile', power: 55, cd: 1.9, speed: 210, r: 4, count: 4, spread: 0.5, status: ['psn', 0.1] },
   venomJet:     { name: 'Venom Jet', type: 'poison', kind: 'beam', power: 220, cd: 5, charge: 0.4, dur: 0.6, width: 10, len: 250, status: ['psn', 0.4] },
   // bug
   megahorn:     { name: 'Megahorn', type: 'bug', kind: 'dash', power: 290, cd: 5, speed: 310, dur: 0.4 },
+  beetleBarrage:{ name: 'Beetle Barrage', type: 'bug', kind: 'dash', power: 58, cd: 5, speed: 360, dur: 0.35, hits: 4 },
   pinMissile:   { name: 'Pin Missile', type: 'bug', kind: 'projectile', power: 40, cd: 1.8, speed: 340, r: 3, count: 5, spread: 0.3 },
-  signalBeam:   { name: 'Signal Beam', type: 'bug', kind: 'beam', power: 230, cd: 4.5, charge: 0.35, dur: 0.55, width: 9, len: 270 },
   // ghost
   shadowBall:   { name: 'Shadow Ball', type: 'ghost', kind: 'projectile', power: 175, cd: 2.8, speed: 190, r: 7, homing: 2 },
   phantomStrike:{ name: 'Phantom Strike', type: 'ghost', kind: 'dash', power: 190, cd: 3, speed: 400, dur: 0.28, crit: 0.3 },
@@ -189,7 +195,7 @@ const ROSTER = [
     moves: ['voltRush', 'thunderbolt', 'thunder', 'voltCannon'] },
   { id: 'cinderox',  name: 'CINDEROX',  types: ['fire'],     hp: 1080, atk: 1.12, def: 1.0,  spd: 90,  size: 'M', item: 'emberStone',
     moves: ['flameWheel', 'flamethrower', 'fireBlast', 'eruption'] },
-  { id: 'tidalisk',  name: 'TIDALISK',  types: ['water'],    hp: 1150, atk: 1.0,  def: 1.1,  spd: 86,  size: 'M', item: 'mysticDrop',
+  { id: 'tidalisk',  name: 'TIDALISK',  types: ['water'],    hp: 1240, atk: 1.04, def: 1.1,  spd: 86,  size: 'M', item: 'mysticDrop',
     moves: ['hydroCannon', 'bubbleBeam', 'aquaJet', 'whirlpool'] },
   { id: 'thornback', name: 'THORNBACK', types: ['grass', 'ground'], hp: 1260, atk: 0.98, def: 1.25, spd: 70, size: 'M', item: 'ironPlate',
     moves: ['razorLeaf', 'solarBeam', 'seedBomb', 'photosynth'] },
@@ -200,21 +206,21 @@ const ROSTER = [
   { id: 'drakorn',   name: 'DRAKORN',   types: ['dragon'],   hp: 1200, atk: 1.2,  def: 1.0,  spd: 88,  size: 'M', item: 'powerBand',
     moves: ['dragonPulse', 'dragonClaw', 'starfall', 'dragonDance'] },
   { id: 'boulderon', name: 'BOULDERON', types: ['rock', 'ground'], hp: 1420, atk: 1.15, def: 1.38, spd: 55, size: 'L', item: 'ironPlate',
-    moves: ['rockSlide', 'sandBlast', 'rollout', 'quake'] },
+    moves: ['rockSlide', 'quicksand', 'rollout', 'quake'] },
   { id: 'mindra',    name: 'MINDRA',    types: ['psychic'],  hp: 900,  atk: 1.22, def: 0.86, spd: 92,  size: 'M', item: 'quickCharm',
     moves: ['psybeam', 'mindOrbs', 'foresight', 'calmMind'] },
   { id: 'shadefang', name: 'SHADEFANG', types: ['dark'],     hp: 980,  atk: 1.2,  def: 0.9,  spd: 108, size: 'M', item: 'swiftFeather',
     moves: ['nightSlash', 'darkWave', 'gloomOrb', 'darkPulse'] },
-  { id: 'lumawool',  name: 'LUMAWOOL',  types: ['electric'], hp: 1080, atk: 1.06, def: 1.1,  spd: 76,  size: 'M', item: 'snackPouch',
-    moves: ['thunderbolt', 'discharge', 'powerGem', 'cottonGuard'] },
+  { id: 'lumawool',  name: 'LUMAWOOL',  types: ['electric'], hp: 1010, atk: 1.04, def: 1.08, spd: 76,  size: 'M', item: 'snackPouch',
+    moves: ['thunderbolt', 'discharge', 'staticSiphon', 'cottonGuard'] },
   { id: 'brawlix',   name: 'BRAWLIX',   types: ['fighting'], hp: 1100, atk: 1.25, def: 1.0,  spd: 95,  size: 'M', item: 'powerBand',
     moves: ['closeCombat', 'jab', 'auraSphere', 'auraCannon'] },
-  { id: 'galewing',  name: 'GALEWING',  types: ['flying'],   hp: 980,  atk: 1.18, def: 0.95, spd: 115, size: 'M', item: 'swiftFeather',
-    moves: ['airSlash', 'braveDive', 'cycloneRay', 'tailwind'] },
+  { id: 'galewing',  name: 'GALEWING',  types: ['flying'],   hp: 820,  atk: 1.08, def: 0.92, spd: 115, size: 'M', item: 'swiftFeather',
+    moves: ['airSlash', 'braveDive', 'razorGale', 'tailwind'] },
   { id: 'venomire',  name: 'VENOMIRE',  types: ['poison'],   hp: 1020, atk: 1.02, def: 1.08, spd: 78,  size: 'M', item: 'toxicVial',
     moves: ['sludgeBomb', 'toxicPool', 'acidSpray', 'venomJet'] },
-  { id: 'scarablade',name: 'SCARABLADE',types: ['bug', 'fighting'], hp: 1060, atk: 1.12, def: 1.08, spd: 82, size: 'M', item: 'powerBand',
-    moves: ['megahorn', 'pinMissile', 'signalBeam', 'bulkUp'] },
+  { id: 'scarablade',name: 'SCARABLADE',types: ['bug', 'fighting'], hp: 950, atk: 1.1, def: 1.05, spd: 82, size: 'M', item: 'powerBand',
+    moves: ['megahorn', 'pinMissile', 'beetleBarrage', 'bulkUp'] },
   { id: 'wispurr',   name: 'WISPURR',   types: ['ghost'],    hp: 950,  atk: 1.25, def: 0.88, spd: 104, size: 'M', item: 'quickCharm',
     moves: ['shadowBall', 'phantomStrike', 'spiritFlames', 'spectralRay'] },
   { id: 'gearhulk',  name: 'GEARHULK',  types: ['steel'],    hp: 1450, atk: 1.05, def: 1.35, spd: 52,  size: 'L', item: 'ironPlate',

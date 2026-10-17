@@ -48,8 +48,7 @@ On a phone or tablet, Player 2 sits across the table: their stick and buttons ap
 ## Features
 
 - 20 original monsters covering all 18 types, including Mondaze, a burnt-out coffee-clutching sloth, and Smugshi, based on the creator's Shiba Inu, Toshi, with the full type-effectiveness chart (immunities softened to ¼ damage) and same-type bonus
-- Every type has a beam move, each with its own layered beam sound
-- Move kinds: projectile, homing, beam (charge + sustained, spiral-ring visuals), dash, burst, delayed zone strikes (lightning, meteors, rock slides), buffs, heals
+- Move kinds: projectiles (homing, exploding, boomerang), beams with their own per-type sounds, dashes and multi-hit combos, bursts, delayed strikes (lightning, meteors, rock slides), lingering pools, vortexes that pull you in, draining attacks, buffs and heals
 - Status effects: paralysis, burn, poison, freeze, plus slows
 - Held items (damage boosts, regen, speed, defence, cooldown)
 - Online 2-player: room codes, peer-to-peer, each player sees the arena from their own side
