@@ -17,7 +17,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 ## Decisions already made (keep these)
 
 - **Original IP only.** Monsters, names and sprites are original designs, never Pokémon or Nintendo assets.
-- **Smugshi is the owner's real dog, Toshi** (a red Shiba Inu with a cream mask, white socks, white eyebrow spots, a big curled tail and a famously smug half-closed stare). Keep his look and personality: Zoomies, Shiba Scream, Smug Beam, Blanket Nap. Tuned to a 50% bot round-robin win rate.
+- **Smugshi is the owner's real dog, Toshi** (a red Shiba Inu with a cream mask, white socks, white eyebrow spots, a big curled tail and a famously smug half-closed stare). Keep his look and personality: Zoomies, Shiba Scream (with its own synthesized "AAAAAH" sound, `shibaScream` in `js/audio.js`, picked via the move's `sfx` field), Smug Beam, Blanket Nap. Tuned to a 50% bot round-robin win rate.
 - **Music is an original chiptune** in the style of the Gold/Silver Mt. Silver Red battle. Never transcribe the real melody.
 - **Swapping mid-fight does not pause the game.** The swapping side is briefly open to attack, with an 8 s cooldown. HP and status carry over.
 - **Beam sound:** Normal is the base sound. Every other type adds a flavour layer (`BEAM_LAYERS` in `js/audio.js`), level-balanced through `LAYER_GAIN`.

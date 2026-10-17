@@ -158,7 +158,7 @@ const MOVES = {
   wish:         { name: 'Wish', type: 'fairy', kind: 'heal', amount: 0.35, cd: 16 },
   // Toshi (Smugshi): the owner's Shiba Inu
   zoomies:      { name: 'Zoomies', type: 'normal', kind: 'dash', power: 170, cd: 2, speed: 430, dur: 0.35 },
-  shibaScream:  { name: 'Shiba Scream', type: 'normal', kind: 'burst', power: 230, cd: 5, r: 60, delay: 0.35, status: ['par', 0.3] },
+  shibaScream:  { name: 'Shiba Scream', type: 'normal', kind: 'burst', power: 230, cd: 5, r: 60, delay: 0.35, status: ['par', 0.3], sfx: 'shibaScream' },
   smugBeam:     { name: 'Smug Beam', type: 'fairy', kind: 'beam', power: 250, cd: 5, charge: 0.45, dur: 0.6, width: 11, len: 280 },
   blanketNap:   { name: 'Blanket Nap', type: 'normal', kind: 'heal', amount: 0.35, cd: 15 },
 };

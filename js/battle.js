@@ -393,7 +393,7 @@ class Battle {
         break;
       case 'burst':
         m.action = { kind: 'burst', t: 0, mv, dir, lock: true, done: false };
-        Sfx.play('charge');
+        Sfx.play(mv.sfx || 'charge');   // a move can bring its own wind-up sound
         break;
       case 'zone': {
         const n = mv.count || 1;
@@ -424,8 +424,8 @@ class Battle {
       }
       case 'heal': {
         const amt = Math.round(m.maxHp * mv.amount);
-        const real = Math.min(amt, m.maxHp - m.hp);
-        m.hp += real;
+        const real = Math.round(Math.min(amt, m.maxHp - m.hp));
+        m.hp = Math.min(m.maxHp, m.hp + real);
         this.number(m, real, null, '#b6ff9a', '#4fae2e', '+');
         this.burst(m.x, m.cy, ['#4fae2e', '#b6ff9a', '#ffffff'], 22, 50, -50);
         m.action = { kind: 'cast', t: 0, dur: 0.45, lock: true };
@@ -807,6 +807,8 @@ class Battle {
 
   // Floating damage number; merges repeated ticks with the same key.
   number(m, val, key, fill, shade, prefix = '') {
+    // the pixel font has no decimal point, so 245.6 would read as "2456"
+    val = Math.round(val);
     if (key) {
       const f = this.floats.find(f => f.key === key && f.t < 0.5);
       if (f) {

@@ -41,6 +41,8 @@ const Sfx = (() => {
     s.start(t); s.stop(t + dur + 0.02);
   }
 
+  const SCREAM_GAIN = 0.5; // level-matched just under the beam blasts (a high scream sounds louder than it measures)
+
   const lib = {
     select() { tone(880, 0.06, 'square', 0.12); },
     back() { tone(440, 0.06, 'square', 0.1); },
@@ -58,6 +60,38 @@ const Sfx = (() => {
     ball() { tone(380, 0.18, 'sine', 0.18, 500); },
     pop() { noise(0.12, 0.25, 3000); tone(900, 0.08, 'square', 0.08); },
     faint() { tone(500, 0.7, 'triangle', 0.22, -420); },
+    // Smugshi's Shiba Scream: a dramatic, wobbling "AAAAAH!". A buzzy voice is
+    // shaped into an "ah" vowel by three formant filters, scoops up into the
+    // scream, warbles, cracks upward and gives out, over a hoarse breath.
+    shibaScream() {
+      const t = ctx.currentTime, dur = 0.8;
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(480, t);
+      o.frequency.exponentialRampToValueAtTime(860, t + 0.09);      // scoop up
+      o.frequency.setValueAtTime(860, t + 0.52);
+      o.frequency.exponentialRampToValueAtTime(1180, t + 0.6);      // voice cracks
+      o.frequency.exponentialRampToValueAtTime(560, t + dur);       // and gives out
+      const vib = ctx.createOscillator(), vg = ctx.createGain();
+      vib.frequency.value = 11; vg.gain.value = 48;
+      vib.connect(vg).connect(o.frequency);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(SCREAM_GAIN, t + 0.04);
+      g.gain.setValueAtTime(SCREAM_GAIN, t + dur - 0.12);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      const flutter = ctx.createOscillator(), fg = ctx.createGain();   // the "aAaAa" warble
+      flutter.frequency.value = 7; fg.gain.value = SCREAM_GAIN * 0.3;
+      flutter.connect(fg).connect(g.gain);
+      for (const [f, q, v] of [[850, 5, 1], [1250, 7, 0.55], [2850, 9, 0.25]]) {   // "ah" formants
+        const bp = ctx.createBiquadFilter(), fv = ctx.createGain();
+        bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; fv.gain.value = v;
+        o.connect(bp).connect(fv).connect(g);
+      }
+      g.connect(master);
+      for (const s of [o, vib, flutter]) { s.start(t); s.stop(t + dur + 0.05); }
+      noise(dur, 0.05, 3200);                                      // hoarse breath
+    },
     win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'square', 0.1, 0, i * 0.13)); },
     lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.28, 'triangle', 0.14, 0, i * 0.18)); },
   };
@@ -443,7 +477,7 @@ const Sfx = (() => {
       noiseBuf = off.createBuffer(1, off.sampleRate, off.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       const layer = (type, t, dur) => { bus = ctx.createGain(); bus.gain.value = LAYER_GAIN[type] || 1; bus.connect(master); BEAM_LAYERS[type](t, dur, BEAM_PITCH[type] || 58); bus = null; };
-      try { fn({ tone, beamCharge, beamFire, Music, BEAM_LAYERS, layer }); } finally { [ctx, master, noiseBuf] = saved; }
+      try { fn({ tone, beamCharge, beamFire, Music, BEAM_LAYERS, layer, lib }); } finally { [ctx, master, noiseBuf] = saved; }
     },
   };
 })();
