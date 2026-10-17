@@ -43,7 +43,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 | `js/audio.js` | `Sfx`: synthesized SFX, `beamCharge`/`beamFire` + per-type layers, `Sfx.music` sequencer |
 | `js/ui.js`, `js/main.js` | HUD, callouts, swap tray, menus, team select, online lobby and message flow, game loop |
 | `js/net.js` | `Net`: PeerJS host/join with 5-letter room codes, host snapshots + recorded events, guest playback and input |
-| `js/input.js` | Keyboard, touch and gamepad input for players 0 and 1. `Input.dir(p)`/`Input.moves(p)`; `Input.setMode('solo'|'duo')` switches key layouts (solo: WASD/arrows, J K L ;, Q/Tab swap, P pause; duo: P1 WASD + R T F G + Q, P2 arrows + I O K L + P, Esc pauses) |
+| `js/input.js` | Keyboard, mouse (1-player/online: left/right click = moves 1/2, Shift + click = moves 3/4; `Input.mouse` switches it on per battle), touch and gamepad input for players 0 and 1. `Input.dir(p)`/`Input.moves(p)`; `Input.setMode('solo'|'duo')` switches key layouts (solo: WASD/arrows, J K L ;, Q/Tab swap, P pause; duo: P1 WASD + R T F G + Q, P2 arrows + I O K L + P, Esc pauses) |
 
 **Adding a monster:** add an art function to `MONSTER_ART` in `sprites.js`, plus a `ROSTER` entry in `data.js` (types, hp, atk, def, spd, size, item, 4 move ids). **Adding a type:** extend `TYPES`, add a `CHART` row and its column entries, and add a `BEAM_LAYERS` entry with a `LAYER_GAIN` value.
 

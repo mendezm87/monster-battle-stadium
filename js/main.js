@@ -2,7 +2,7 @@
 
 // Shown on the title screen so players can tell whether their browser has the latest
 // build (GitHub Pages lets browsers cache files for up to 10 minutes). Bump on every release.
-const VERSION = '2026.10.16-r6';
+const VERSION = '2026.10.16-r7';
 
 const App = {
   mode: '1p',       // '1p' vs the CPU, or '2p' local
@@ -292,6 +292,7 @@ function startBattle(net = null) {
   document.body.classList.toggle('two-p', UI.twoP);
   document.body.classList.toggle('tabletop', UI.tabletop);
   Input.setMode(UI.twoP ? 'duo' : 'solo');
+  Input.mouse = !UI.twoP;   // mouse attacks in 1-player and online games
   UI.setBattleChrome(true);
   UI.hudCache = {};
   UI.closeSwap();
@@ -315,6 +316,7 @@ function leaveBattle(to) {
   UI.mySide = 'player'; UI.onSwapPick = null;
   document.body.classList.remove('two-p', 'tabletop');
   Input.setMode('solo');
+  Input.mouse = false;
   App.picking = 0;
   if (to === 'team') openTeamSelect(); else if (to === 'title') UI.show('title');
 }
