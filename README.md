@@ -28,6 +28,8 @@ python3 -m http.server 8000
 
 Moves auto-aim at your opponent; the skill is in positioning and dodging.
 
+On PC the four move buttons sit in the bottom-right in the shape of your mouse: the left column is the left button, the right column the right button, and the bottom row is the same click with Shift held.
+
 ### Online
 
 Pick **Online** on the title screen. One player presses **Host** and shares the 5-letter code; the other types it in and presses **Join**. Each of you picks a team, and each of you sees the arena from your own side, with your monster at the bottom. Controls are the normal 1-player ones.

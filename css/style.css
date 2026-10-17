@@ -247,3 +247,17 @@ body.tabletop #btn-pause { top: 57.6cqh; left: auto; right: 1.5cqw; transform: t
 #online-status { font: 700 3.6cqw/1.4 system-ui, sans-serif; max-width: 80cqw; opacity: .9; min-height: 5cqw; }
 #online-status.err { color: #ff8a7a; }
 #version { position: absolute; right: 3cqw; bottom: 2cqw; font: 700 2.6cqw system-ui, sans-serif; opacity: .55; }
+
+/* ---------- PC, 1-player / online: moves laid out like the mouse ----------
+   left column = left button, right column = right button, bottom row = with Shift */
+body.no-touch:not(.two-p) #move-buttons { left: auto; right: 2cqw; width: 44cqw; grid-template-columns: 1fr 1fr; gap: 1.2cqw; bottom: 2cqw; }
+body.no-touch:not(.two-p) .mbtn { height: 11cqw; padding-top: 2.4cqw; }
+body.no-touch:not(.two-p) .mbtn:nth-child(1) { border-top-left-radius: 8cqw; }
+body.no-touch:not(.two-p) .mbtn:nth-child(2) { border-top-right-radius: 8cqw; }
+body.no-touch:not(.two-p) .mbtn:nth-child(3) { border-bottom-left-radius: 6cqw; }
+body.no-touch:not(.two-p) .mbtn:nth-child(4) { border-bottom-right-radius: 6cqw; }
+body.no-touch:not(.two-p) .mbtn .key { top: 0.8cqw; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 0.5cqw; opacity: .9; }
+body.no-touch:not(.two-p) .mbtn .key b { font-size: 3.2cqw; line-height: 1; }
+.mouse-ico { height: 3.8cqw; width: auto; display: block; }
+body.no-touch:not(.two-p) #btn-swap { bottom: 26cqw; }
+body.no-touch:not(.two-p) #swap-tray { bottom: 35cqw; }

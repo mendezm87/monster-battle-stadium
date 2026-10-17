@@ -134,12 +134,16 @@ const UI = {
     const box = $(p ? '#move-buttons2' : '#move-buttons');
     box.innerHTML = '';
     const keys = Input.labels(p);
+    // with the mouse layout, each button shows a little mouse with its side filled in
+    const mouse = p === 0 && Input.mode === 'solo';
     this.moveBtns[p] = mon.moves.map((mv, i) => {
       const b = document.createElement('div');
       b.className = 'mbtn';
       const col = TYPES[mv.type].color;
       b.style.background = `linear-gradient(${col}, ${shadeHex(col, -0.25)})`;
-      b.innerHTML = `<span class="key">${keys[i]}</span><span class="nm">${mv.name}</span><div class="cd"></div>`;
+      const key = mouse ? `${i >= 2 ? '<b>⇧</b>' : ''}${mouseIcon(i % 2 === 0 ? 'left' : 'right')}` : keys[i];
+      b.title = keys[i].replace('⇧', 'Shift +');
+      b.innerHTML = `<span class="key">${key}</span><span class="nm">${mv.name}</span><div class="cd"></div>`;
       b.style.display = 'flex'; b.style.alignItems = 'center'; b.style.justifyContent = 'center';
       Input.bindMoveButton(b, i, p);
       box.appendChild(b);
@@ -216,4 +220,12 @@ function shadeHex(hex, amt) {
   const [r, g, b] = hexRgb(hex);
   const f = v => Math.max(0, Math.min(255, Math.round(v * (1 + amt))));
   return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+
+// A small mouse outline with the left or right button filled in.
+function mouseIcon(side) {
+  const fill = side === 'left' ? 'M5 0.6A4.4 4.4 0 0 0 0.6 5V6H5Z' : 'M5 0.6A4.4 4.4 0 0 1 9.4 5V6H5Z';
+  return `<svg class="mouse-ico" viewBox="0 0 10 14" aria-hidden="true"><path d="${fill}" fill="currentColor"/>` +
+    '<rect x="0.6" y="0.6" width="8.8" height="12.8" rx="4.4" fill="none" stroke="currentColor" stroke-width="1.1"/>' +
+    '<path d="M5 0.6V6M0.6 6H9.4" stroke="currentColor" stroke-width="1.1"/></svg>';
 }
