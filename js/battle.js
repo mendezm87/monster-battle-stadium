@@ -2,6 +2,7 @@
 
 const TAU = Math.PI * 2;
 const SPR_SCALE = 1.5;   // world units per sprite pixel (3 canvas px at 2x)
+const MIRROR_Y = FIELD.y0 + FIELD.y1;  // a flipped view mirrors y about the field's centre line
 const DMG_SCALE = 0.8;
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -187,20 +188,30 @@ class AI {
 
 // ------------------------------------------------------------------ Battle
 class Battle {
-  constructor({ playerTeam, enemyTeam, difficulty, stage, ui, twoP = false, overheadBars = false }) {
+  // twoP: the top ('enemy') side is a second human. p2Input: where that human's
+  // input comes from (local keys/touch by default, the network when hosting online).
+  // flip: draw the arena turned 180° so the enemy side is at the bottom (the online guest's view).
+  // puppet: never simulate; state arrives from the host (see net.js).
+  constructor({ playerTeam, enemyTeam, difficulty, stage, ui, twoP = false, overheadBars = false,
+    seed = (Math.random() * 1e9) | 0, p2Input = null, flip = false, puppet = false, online = false }) {
     this.ui = ui;
     this.p = playerTeam.map(id => new Mon(ROSTER_BY_ID[id], 'player'));
     this.e = enemyTeam.map(id => new Mon(ROSTER_BY_ID[id], 'enemy'));
     this.pi = 0; this.ei = 0;
     this.diff = DIFFICULTY[difficulty];
-    // In 2-player mode the top trainer is a second human instead of the CPU.
     this.twoP = twoP; this.overheadBars = overheadBars;
     this.ai = twoP ? null : new AI(this.diff);
-    const built = buildStage(stage, (Math.random() * 1e9) | 0);
+    this.p2Input = p2Input || { dir: () => Input.dir(1), moves: () => Input.moves(1) };
+    this.flip = flip; this.puppet = puppet; this.online = online;
+    this.seed = seed;
+    const built = buildStage(stage, seed);
     this.ground = built.canvas; this.stage = built.stage;
     this.decal = document.createElement('canvas'); this.decal.width = W; this.decal.height = H;
     this.dctx = this.decal.getContext('2d');
-    this.trainers = { player: trainerCanvas('player', true), enemy: trainerCanvas('rival', false) };
+    // the bottom trainer is seen from behind, the top one from the front
+    this.trainers = flip
+      ? { player: trainerCanvas('player', false), enemy: trainerCanvas('rival', true) }
+      : { player: trainerCanvas('player', true), enemy: trainerCanvas('rival', false) };
     this.projectiles = []; this.zones = []; this.particles = []; this.floats = []; this.texts = []; this.balls = [];
     this.weather = Array.from({ length: 70 }, () => this.newFlake(true));
     this.state = 'intro'; this.stateT = 0; this.time = 0; this.clock = 0;
@@ -214,6 +225,17 @@ class Battle {
   get P() { return this.p[this.pi]; }
   get E() { return this.e[this.ei]; }
   foe(m) { return m.side === 'player' ? this.E : this.P; }
+
+  // ---------------------------------------------------------- view (perspective)
+  // When flipped, the arena is turned 180° about the field centre but sprites and
+  // text stay upright. A point drawn k units above its ground spot (x, y + k) lands
+  // at the mirrored ground spot, still k above it: screen y = MIRROR_Y - y - 2k.
+  sx(x) { return this.flip ? W - x : x; }
+  sy(y, k = 0) { return this.flip ? MIRROR_Y - y - 2 * k : y; }
+  sa(a) { return this.flip ? a + Math.PI : a; }
+  // particles, numbers and texts carry `g`, the ground y they are anchored to;
+  // their own drift (rising, spreading) is kept as-is on screen
+  gy(o) { return this.flip ? o.y + MIRROR_Y - 2 * (o.g ?? (o.kind === 'ring' || o.kind === 'bolt' ? o.y : o.y + 19)) : o.y; }
 
   // ---------------------------------------------------------- flow
   sendOut(side, at) {
@@ -249,7 +271,7 @@ class Battle {
     const at = { x: out.x, y: out.y };
     out.action = null; out.visible = false; out.ghosts = [];
     const tp = TRAINER_POS[side];
-    this.particles.push({ x: tp.x, y: tp.y - 14, x2: out.x, y2: out.cy, life: 0.3, max: 0.3, color: '#ff5a4a', kind: 'line' });
+    this.particles.push({ x: tp.x, y: tp.y - 14, g: tp.y, x2: out.x, y2: out.cy, k2: out.y - out.cy, life: 0.3, max: 0.3, color: '#ff5a4a', kind: 'line' });
     this.particles.push({ x: out.x, y: out.y - 4, r0: 22, r1: 2, life: 0.3, max: 0.3, color: '#ffffff', kind: 'ring', w: 3 });
     this.burst(out.x, out.cy, ['#ff5a4a', '#ffffff'], 14, 60);
     if (side === 'player') this.pi = idx; else this.ei = idx;
@@ -313,7 +335,7 @@ class Battle {
   end(result) {
     this.state = 'over';
     Sfx.music.stop(0.6);
-    setTimeout(() => Sfx.play(result === 'win' || (this.twoP && result !== 'draw') ? 'win' : 'lose'), 500);
+    setTimeout(() => Sfx.play(result === 'win' || (this.twoP && !this.online && result !== 'draw') ? 'win' : 'lose'), 500);
     const dealt = this.p.reduce((s, m) => s + m.dmgDealt, 0);
     const dealtE = this.e.reduce((s, m) => s + m.dmgDealt, 0);
     this.ui.onEnd({ result, time: this.clock, kos: this.kos.player, lost: this.kos.enemy, dealt, dealtE, twoP: this.twoP });
@@ -354,7 +376,7 @@ class Battle {
           this.projectiles.push({
             x: m.x + Math.cos(a) * m.r, y: m.cy + Math.sin(a) * m.r,
             vx: Math.cos(a) * mv.speed, vy: Math.sin(a) * mv.speed,
-            r: mv.r || 4, mv, owner: m, life: 2.6, spin: rand(0, TAU),
+            r: mv.r || 4, mv, owner: m, life: 2.6, spin: rand(0, TAU), k: m.y - m.cy,
           });
         }
         m.action = { kind: 'cast', t: 0, dur: 0.18, lock: true };
@@ -394,7 +416,7 @@ class Battle {
           m.buffs.push({ stat, mul, t: mv.dur });
         }
         const label = Object.keys(mv.buff).map(s => s.toUpperCase()).join(' & ') + ' UP!';
-        this.text(m.x, m.y - m.h - 6, label, fx[1]);
+        this.text(m.x, m.y - m.h - 6, label, fx[1], m.y);
         this.burst(m.x, m.cy, fx, 18, 60, -40);
         m.action = { kind: 'cast', t: 0, dur: 0.35, lock: true };
         Sfx.play('buff');
@@ -435,9 +457,9 @@ class Battle {
     this.burst(tgt.x, tgt.cy, fx, mult < 1 ? 4 : Math.min(30, 8 + dmg / 15), 110);
     if (mult >= 1 || fresh) this.sparks(tgt.x, tgt.cy, mult < 1 ? 3 : 8);
     if (fresh) {
-      if (eff >= 2) this.text(tgt.x, tgt.y - tgt.h - 12, 'SUPER EFFECTIVE!', '#ffe066');
-      else if (eff < 1) this.text(tgt.x, tgt.y - tgt.h - 12, eff <= 0.25 ? 'BARELY AFFECTS...' : 'NOT VERY EFFECTIVE', '#c8c8d8');
-      if (crit) this.text(tgt.x, tgt.y - tgt.h - 22, 'CRITICAL HIT!', '#ff7a5a');
+      if (eff >= 2) this.text(tgt.x, tgt.y - tgt.h - 12, 'SUPER EFFECTIVE!', '#ffe066', tgt.y);
+      else if (eff < 1) this.text(tgt.x, tgt.y - tgt.h - 12, eff <= 0.25 ? 'BARELY AFFECTS...' : 'NOT VERY EFFECTIVE', '#c8c8d8', tgt.y);
+      if (crit) this.text(tgt.x, tgt.y - tgt.h - 22, 'CRITICAL HIT!', '#ff7a5a', tgt.y);
     }
     Sfx.play(dmg > 200 ? 'bigHit' : 'hit');
     this.addShake(mult < 1 ? 1.2 : Math.min(6, 1 + dmg / 80));
@@ -458,7 +480,7 @@ class Battle {
     m.statusTick = 1;
     const label = { par: 'IS PARALYZED!', brn: 'WAS BURNED!', frz: 'IS FROZEN!', psn: 'WAS POISONED!' }[s];
     const col = { par: '#ffe066', brn: '#ff8a4a', frz: '#bff0ff', psn: '#e0a0ff' }[s];
-    this.text(m.x, m.y - m.h - 2, label, col);
+    this.text(m.x, m.y - m.h - 2, label, col, m.y);
     if (s === 'frz') { m.action = null; m.vx = m.vy = 0; }
     Sfx.play('status');
   }
@@ -484,11 +506,11 @@ class Battle {
         this.clock += dt;
         this.swapCd.player -= dt; this.swapCd.enemy -= dt;
         const P = this.P, E = this.E;
-        const eDir = this.ai ? this.ai.update(dt, E, P, this) : Input.dir(1);
+        const eDir = this.ai ? this.ai.update(dt, E, P, this) : this.p2Input.dir();
         this.updateMon(P, dt, E, Input.dir(0));
         const held = Input.moves(0);
         for (let i = 0; i < 4; i++) if (held[i]) this.tryMove(P, i);
-        if (!this.ai) { const h2 = Input.moves(1); for (let i = 0; i < 4; i++) if (h2[i]) this.tryMove(E, i); }
+        if (!this.ai) { const h2 = this.p2Input.moves(); for (let i = 0; i < 4; i++) if (h2[i]) this.tryMove(E, i); }
         if (this.state === 'fight') this.updateMon(E, dt, P, eDir);
         if (this.state === 'fight') this.separate(P, E);
         this.updateProjectiles(dt);
@@ -534,7 +556,7 @@ class Battle {
         m.statusTick = 1.1;
         if (Math.random() < 0.22 && !m.action) {
           m.stunT = Math.max(m.stunT, 0.7);
-          this.text(m.x, m.y - m.h - 2, 'IS PARALYZED!', '#ffe066');
+          this.text(m.x, m.y - m.h - 2, 'IS PARALYZED!', '#ffe066', m.y);
           this.sparks(m.x, m.cy, 6, '#fff27a');
           Sfx.play('zap');
         }
@@ -556,7 +578,7 @@ class Battle {
         if (m.hp <= 0) { this.faint(m); return; }
       }
       if (m.statusT <= 0) {
-        if (m.status === 'frz') this.text(m.x, m.y - m.h - 2, 'THAWED OUT!', '#bff0ff');
+        if (m.status === 'frz') this.text(m.x, m.y - m.h - 2, 'THAWED OUT!', '#bff0ff', m.y);
         m.status = null;
       }
     }
@@ -617,7 +639,7 @@ class Battle {
           this.particles.push({ x: bx, y: by, vx: rand(-40, 40), vy: rand(-40, 40), life: 0.35, max: 0.35, size: rand(1, 3), color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
           if (a.t >= mv.dur) {
             m.action = null;
-            if (mv.recharge) { m.stunT = mv.recharge; this.text(m.x, m.y - m.h - 2, 'MUST RECHARGE', '#d8d8e8'); }
+            if (mv.recharge) { m.stunT = mv.recharge; this.text(m.x, m.y - m.h - 2, 'MUST RECHARGE', '#d8d8e8', m.y); }
           }
         }
         break;
@@ -654,7 +676,7 @@ class Battle {
           a.done = true;
           this.particles.push({ x: m.x, y: m.y - 2, r0: 6, r1: mv.r, life: 0.35, max: 0.35, color: fx[2], kind: 'ring', w: 3 });
           this.particles.push({ x: m.x, y: m.y - 2, r0: 4, r1: mv.r * 0.8, life: 0.45, max: 0.45, color: fx[1], kind: 'ring', w: 2 });
-          this.burst(m.x, m.y - 4, fx, 30, mv.r * 2.6);
+          this.burst(m.x, m.y - 4, fx, 30, mv.r * 2.6, 0, 4);
           this.decalAt(m.x, m.y, mv.r * 0.6);
           this.addShake(6);
           Sfx.play('boom');
@@ -704,7 +726,7 @@ class Battle {
       if (foe && foe.visible && !foe.fainted && Math.hypot(p.x - foe.x, p.y - foe.cy) < p.r + foe.r) {
         p.life = -1;
         if (p.mv.explode) {
-          this.particles.push({ x: p.x, y: p.y, r0: 4, r1: p.mv.explode, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
+          this.particles.push({ x: p.x, y: p.y, g: p.y + p.k, r0: 4, r1: p.mv.explode, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
           this.burst(p.x, p.y, fx, 26, 140);
           this.decalAt(foe.x, foe.y, p.mv.explode * 0.6);
           Sfx.play('boom');
@@ -727,7 +749,7 @@ class Battle {
         if (z.mv.fx === 'bolt') { this.particles.push({ x: z.x, y: z.y, life: 0.25, max: 0.25, kind: 'bolt', color: fx[1], seed: Math.random() }); Sfx.play('zap'); }
         else Sfx.play('boom');
         this.particles.push({ x: z.x, y: z.y, r0: 3, r1: z.r * 1.2, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
-        this.burst(z.x, z.y - 4, fx, 22, z.r * 4);
+        this.burst(z.x, z.y - 4, fx, 22, z.r * 4, 0, 4);
         this.decalAt(z.x, z.y, z.r * 0.7);
         this.addShake(4);
         const foe = this.foe(z.owner);
@@ -758,17 +780,18 @@ class Battle {
   // ---------------------------------------------------------- fx helpers
   addShake(v) { this.shake = Math.max(this.shake, v); }
 
-  burst(x, y, cols, n, speed, vy0 = 0) {
+  // k: how far above the ground the burst happens (body height by default)
+  burst(x, y, cols, n, speed, vy0 = 0, k = 19) {
     for (let i = 0; i < n; i++) {
       const a = rand(0, TAU), s = rand(0.2, 1) * speed;
-      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s + vy0, life: rand(0.25, 0.6), max: 0.6, size: rand(1, 3.5), color: cols[(Math.random() * cols.length) | 0], kind: 'sq', drag: 3 });
+      this.particles.push({ x, y, g: y + k, vx: Math.cos(a) * s, vy: Math.sin(a) * s + vy0, life: rand(0.25, 0.6), max: 0.6, size: rand(1, 3.5), color: cols[(Math.random() * cols.length) | 0], kind: 'sq', drag: 3 });
     }
   }
 
   sparks(x, y, n, color = '#ffffff') {
     for (let i = 0; i < n; i++) {
       const a = rand(0, TAU), s = rand(120, 260);
-      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.18, max: 0.18, color, kind: 'spark', drag: 4 });
+      this.particles.push({ x, y, g: y + 19, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.18, max: 0.18, color, kind: 'spark', drag: 4 });
     }
   }
 
@@ -787,17 +810,17 @@ class Battle {
     if (key) {
       const f = this.floats.find(f => f.key === key && f.t < 0.5);
       if (f) {
-        f.val += val; f.t = 0.05; f.x = m.x; f.y = m.y - m.h - 2;
+        f.val += val; f.t = 0.05; f.x = m.x; f.y = m.y - m.h - 2; f.g = m.y;
         f.img = numberCanvas(prefix + f.val, fill, shade);
         return false;
       }
     }
     const ox = rand(-8, 8);
-    this.floats.push({ key, val, x: m.x + ox, y: m.y - m.h - 2, t: 0, img: numberCanvas(prefix + val, fill, shade) });
+    this.floats.push({ key, val, x: m.x + ox, y: m.y - m.h - 2, g: m.y, t: 0, fill, shade, prefix, img: numberCanvas(prefix + val, fill, shade) });
     return true;
   }
 
-  text(x, y, str, color) { this.texts.push({ x, y, str, color, t: 0 }); }
+  text(x, y, str, color, g = y + 40) { this.texts.push({ x, y, g, str, color, t: 0 }); }
 
   newFlake(anywhere) {
     const kind = this.stage.weather;
@@ -835,20 +858,23 @@ class Battle {
   render(ctx) {
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    const sx = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
-    const sy = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
+    const shx = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
+    const shy = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
     ctx.fillStyle = this.stage.bg; ctx.fillRect(0, 0, W, H);
-    ctx.translate(sx, sy);
+    ctx.translate(shx, shy);
+    // ground and scorch marks live in world space: turn the whole layer when flipped
+    ctx.save();
+    if (this.flip) { ctx.translate(W, MIRROR_Y); ctx.scale(-1, -1); }
     ctx.drawImage(this.ground, 0, 0);
     ctx.drawImage(this.decal, 0, 0);
+    ctx.restore();
 
     this.drawTelegraphs(ctx);
 
-    // trainers + monsters, depth sorted
+    // trainers + monsters, depth sorted by where they stand on screen
     const actors = [];
-    actors.push({ y: TRAINER_POS.enemy.y, draw: () => this.drawTrainer(ctx, 'enemy') });
-    actors.push({ y: TRAINER_POS.player.y, draw: () => this.drawTrainer(ctx, 'player') });
-    for (const m of [this.P, this.E]) if (m.visible) actors.push({ y: m.y, draw: () => this.drawMon(ctx, m) });
+    for (const side of ['enemy', 'player']) actors.push({ y: this.sy(TRAINER_POS[side].y), draw: () => this.drawTrainer(ctx, side) });
+    for (const m of [this.P, this.E]) if (m.visible) actors.push({ y: this.sy(m.y), draw: () => this.drawMon(ctx, m) });
     actors.sort((a, b) => a.y - b.y).forEach(a => a.draw());
 
     for (const m of [this.P, this.E]) if (m.action && m.action.kind === 'beam' && m.visible) this.drawBeam(ctx, m, m.action);
@@ -857,8 +883,9 @@ class Battle {
     this.drawParticles(ctx);
     for (const b of this.balls) {
       const k = Math.min(1, b.t / b.dur);
-      const x = b.from.x + (b.to.x - b.from.x) * k;
-      const y = b.from.y + (b.to.y - b.from.y) * k - Math.sin(Math.PI * k) * 46;
+      const fx = this.sx(b.from.x), fy = this.sy(b.from.y), tx = this.sx(b.to.x), ty = this.sy(b.to.y, 6);
+      const x = fx + (tx - fx) * k;
+      const y = fy + (ty - fy) * k - Math.sin(Math.PI * k) * 46;
       ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(k * 10);
       ctx.drawImage(BALL_IMG, -4.5, -3.75, 9, 7.5); ctx.restore();
     }
@@ -873,7 +900,7 @@ class Battle {
     const STATUS_COL = { par: '#d6b21e', brn: '#e0582a', frz: '#4fb6d8', psn: '#9a3ab8' };
     for (const m of [this.P, this.E]) {
       if (!m.visible || m.fainted) continue;
-      const w = 26, x = Math.round(m.x - w / 2), y = Math.round(m.y - m.h - 6);
+      const w = 26, x = Math.round(this.sx(m.x) - w / 2), y = Math.round(this.sy(m.y) - m.h - 6);
       const pct = m.hp / m.maxHp;
       ctx.fillStyle = OUTLINE; ctx.fillRect(x - 1, y - 1, w + 2, 5);
       ctx.fillStyle = '#2a2638'; ctx.fillRect(x, y, w, 3);
@@ -890,11 +917,12 @@ class Battle {
 
   drawTrainer(ctx, side) {
     const img = this.trainers[side], pos = TRAINER_POS[side];
+    const px = this.sx(pos.x), py = this.sy(pos.y);
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.beginPath(); ctx.ellipse(pos.x, pos.y, 11, 4, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px, py, 11, 4, 0, 0, TAU); ctx.fill();
     const bob = Math.sin(this.time * 2 + (side === 'player' ? 0 : 1)) > 0.7 ? -1 : 0;
     const w = img.width * SPR_SCALE, h = img.height * SPR_SCALE;
-    ctx.drawImage(img, Math.round(pos.x - w / 2), Math.round(pos.y - h + 1 + bob), w, h);
+    ctx.drawImage(img, Math.round(px - w / 2), Math.round(py - h + 1 + bob), w, h);
   }
 
   drawMon(ctx, m) {
@@ -905,19 +933,23 @@ class Battle {
     const moving = Math.hypot(m.vx, m.vy) > 12;
     let bob = moving ? -Math.round(Math.abs(Math.sin(m.walkT / 7 * Math.PI)) * 2) : (Math.sin(this.time * 3 + m.x) > 0.6 ? -1 : 0);
     if (m.status === 'frz' || m.stunT > 0 || m.fainted) bob = 0;
+    const X = Math.round(this.sx(m.x)), Y = Math.round(this.sy(m.y));
+    const face = this.flip ? -m.face : m.face;
+    // your own monster gets the blue ring
+    const mine = m.side === (this.flip ? 'enemy' : 'player');
 
     // ground marker + shadow
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath(); ctx.ellipse(Math.round(m.x), Math.round(m.y), m.r + 2, m.r * 0.42, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = m.side === 'player' ? 'rgba(90,160,255,0.75)' : 'rgba(255,90,80,0.6)';
+    ctx.beginPath(); ctx.ellipse(X, Y, m.r + 2, m.r * 0.42, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = mine ? 'rgba(90,160,255,0.75)' : 'rgba(255,90,80,0.6)';
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(Math.round(m.x), Math.round(m.y), m.r + 4, m.r * 0.5 + 1, 0, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(X, Y, m.r + 4, m.r * 0.5 + 1, 0, 0, TAU); ctx.stroke();
 
     // dash afterimages
     for (const g of m.ghosts) {
       ctx.globalAlpha = (g.t / 0.22) * 0.5 * alpha;
-      ctx.save(); ctx.translate(Math.round(g.x), Math.round(g.y)); if (g.face < 0) ctx.scale(-1, 1);
+      ctx.save(); ctx.translate(Math.round(this.sx(g.x)), Math.round(this.sy(g.y))); if ((this.flip ? -g.face : g.face) < 0) ctx.scale(-1, 1);
       ctx.drawImage(tinted(m.id, g.color), -S / 2, -S + 3, S, S); ctx.restore();
     }
     ctx.globalAlpha = alpha;
@@ -926,13 +958,13 @@ class Battle {
     if (m.buffs.length && !m.fainted) {
       ctx.globalAlpha = 0.25 + Math.sin(this.time * 8) * 0.1;
       ctx.fillStyle = TYPES[m.def.types[0]].fx[1];
-      ctx.beginPath(); ctx.ellipse(m.x, m.y - 1, m.r + 5, m.r * 0.6 + 2, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(X, Y - 1, m.r + 5, m.r * 0.6 + 2, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = alpha;
     }
 
     ctx.save();
-    ctx.translate(Math.round(m.x), Math.round(m.y + bob + sink));
-    if (m.face < 0) ctx.scale(-1, 1);
+    ctx.translate(X, Math.round(Y + bob + sink));
+    if (face < 0) ctx.scale(-1, 1);
     const dx = -S / 2, dy = -S + 3;
     ctx.drawImage(sp.img, dx, dy, S, S);
     let tint = null, ta = 0;
@@ -949,8 +981,8 @@ class Battle {
 
     if (m.status === 'frz' && !m.fainted) {
       ctx.strokeStyle = 'rgba(220,250,255,0.9)'; ctx.fillStyle = 'rgba(160,230,255,0.25)';
-      ctx.fillRect(Math.round(m.x - S / 2), Math.round(m.y - S + 3), S, S - 3);
-      ctx.strokeRect(Math.round(m.x - S / 2) + 0.5, Math.round(m.y - S + 3) + 0.5, S - 1, S - 4);
+      ctx.fillRect(Math.round(X - S / 2), Math.round(Y - S + 3), S, S - 3);
+      ctx.strokeRect(Math.round(X - S / 2) + 0.5, Math.round(Y - S + 3) + 0.5, S - 1, S - 4);
     }
   }
 
@@ -959,41 +991,43 @@ class Battle {
     ctx.lineWidth = 1.5;
     for (const z of this.zones) {
       if (z.done) continue;
-      const k = clamp(z.t / z.delay, 0, 1);
+      const k = clamp(z.t / z.delay, 0, 1), zx = this.sx(z.x), zy = this.sy(z.y);
       ctx.fillStyle = TYPES[z.mv.type].fx[0];
       ctx.globalAlpha = 0.18 + k * 0.2;
-      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * k, z.r * k * 0.7, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(zx, zy, z.r * k, z.r * k * 0.7, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = pulse;
       ctx.strokeStyle = '#ffffff';
       ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.7, 0, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(zx, zy, z.r, z.r * 0.7, 0, 0, TAU); ctx.stroke();
       ctx.setLineDash([]);
     }
     for (const m of [this.P, this.E]) {
       const a = m.action;
       if (!a || !m.visible) continue;
+      const X = this.sx(m.x), Y = this.sy(m.y), dir = this.sa(a.dir);
       if (a.kind === 'burst' && !a.done) {
         const k = clamp(a.t / a.mv.delay, 0, 1);
         ctx.fillStyle = TYPES[a.mv.type].fx[0];
         ctx.globalAlpha = 0.15 + k * 0.2;
-        ctx.beginPath(); ctx.ellipse(m.x, m.y, a.mv.r * k, a.mv.r * k * 0.7, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r * k, a.mv.r * k * 0.7, 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = pulse; ctx.strokeStyle = '#ffffff';
         ctx.setLineDash([4, 3]);
-        ctx.beginPath(); ctx.ellipse(m.x, m.y, a.mv.r, a.mv.r * 0.7, 0, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r, a.mv.r * 0.7, 0, 0, TAU); ctx.stroke();
         ctx.setLineDash([]);
       }
       if (a.kind === 'beam' && a.phase === 'charge') {
+        const cy = this.sy(m.cy, m.y - m.cy);
         ctx.globalAlpha = 0.3 + (a.t / a.mv.charge) * 0.4;
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
         ctx.setLineDash([3, 4]);
-        ctx.beginPath(); ctx.moveTo(m.x, m.cy);
-        ctx.lineTo(m.x + Math.cos(a.dir) * a.mv.len, m.cy + Math.sin(a.dir) * a.mv.len); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(X, cy);
+        ctx.lineTo(X + Math.cos(dir) * a.mv.len, cy + Math.sin(dir) * a.mv.len); ctx.stroke();
         ctx.setLineDash([]); ctx.lineWidth = 1.5;
       }
       if (a.kind === 'dash' && a.t <= 0.1) {
         ctx.globalAlpha = 0.5; ctx.strokeStyle = TYPES[a.mv.type].fx[2];
-        ctx.beginPath(); ctx.moveTo(m.x, m.y);
-        ctx.lineTo(m.x + Math.cos(a.dir) * 40, m.y + Math.sin(a.dir) * 40); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(X, Y);
+        ctx.lineTo(X + Math.cos(dir) * 40, Y + Math.sin(dir) * 40); ctx.stroke();
       }
     }
     ctx.globalAlpha = 1;
@@ -1004,9 +1038,10 @@ class Battle {
       if (z.done) continue;
       const left = z.delay - z.t;
       const fx = TYPES[z.mv.type].fx;
+      const zx = this.sx(z.x), zy = this.sy(z.y);   // things still fall down the screen
       if (z.mv.fx === 'meteor' && left < 0.45) {
         const k = 1 - left / 0.45;
-        const x = z.x - 70 * (1 - k), y = z.y - 170 * (1 - k);
+        const x = zx - 70 * (1 - k), y = zy - 170 * (1 - k);
         ctx.globalAlpha = 0.5; ctx.strokeStyle = fx[1]; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(x - 20, y - 48); ctx.lineTo(x, y); ctx.stroke();
         ctx.globalAlpha = 1;
@@ -1014,17 +1049,18 @@ class Battle {
         ctx.fillStyle = fx[2]; ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fill();
       } else if (z.mv.fx === 'rock' && left < 0.35) {
         const k = 1 - left / 0.35;
-        const y = z.y - 150 * (1 - k * k);
-        ctx.fillStyle = '#8f8170'; ctx.fillRect(Math.round(z.x - 6), Math.round(y - 10), 12, 10);
-        ctx.fillStyle = '#b8aa96'; ctx.fillRect(Math.round(z.x - 5), Math.round(y - 9), 6, 3);
-        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.strokeRect(Math.round(z.x - 6) + 0.5, Math.round(y - 10) + 0.5, 11, 9);
+        const y = zy - 150 * (1 - k * k);
+        ctx.fillStyle = '#8f8170'; ctx.fillRect(Math.round(zx - 6), Math.round(y - 10), 12, 10);
+        ctx.fillStyle = '#b8aa96'; ctx.fillRect(Math.round(zx - 5), Math.round(y - 9), 6, 3);
+        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.strokeRect(Math.round(zx - 6) + 0.5, Math.round(y - 10) + 0.5, 11, 9);
       }
     }
   }
 
   drawBeam(ctx, m, a) {
     const mv = a.mv, fx = TYPES[mv.type].fx;
-    const ox = m.x + Math.cos(a.dir) * 6, oy = m.cy + Math.sin(a.dir) * 6;
+    // the muzzle sits at body height, 6 units out along the aim
+    const ox = this.sx(m.x + Math.cos(a.dir) * 6), oy = this.sy(m.cy + Math.sin(a.dir) * 6, m.y - m.cy);
     if (a.phase === 'charge') {
       const k = a.t / mv.charge;
       ctx.globalAlpha = 0.5; ctx.fillStyle = fx[0];
@@ -1037,7 +1073,7 @@ class Battle {
     const fade = Math.min(1, (mv.dur - a.t) / 0.15);
     const len = mv.len * grow, w = mv.width * Math.max(0.2, fade);
     ctx.save();
-    ctx.translate(ox, oy); ctx.rotate(a.dir);
+    ctx.translate(ox, oy); ctx.rotate(this.sa(a.dir));
     const layers = [[fx[0], 0.35, 1.7], [fx[0], 0.9, 1.15], [fx[1], 1, 0.8], [fx[2], 1, 0.38]];
     for (const [col, al, sc] of layers) {
       ctx.globalAlpha = al; ctx.fillStyle = col;
@@ -1068,64 +1104,67 @@ class Battle {
 
   drawProjectile(ctx, p) {
     const fx = TYPES[p.mv.type].fx, t = p.mv.type;
+    const px = this.sx(p.x), py = this.sy(p.y, p.k ?? 19);
     if (t === 'grass') {
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.spin);
+      ctx.save(); ctx.translate(px, py); ctx.rotate(p.spin);
       ctx.fillStyle = fx[1]; ctx.beginPath(); ctx.moveTo(-p.r * 1.4, 0); ctx.lineTo(0, -p.r * 0.7); ctx.lineTo(p.r * 1.4, 0); ctx.lineTo(0, p.r * 0.7); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.8; ctx.stroke(); ctx.restore();
       return;
     }
     if (t === 'rock' || t === 'ground') {
-      ctx.save(); ctx.translate(Math.round(p.x), Math.round(p.y)); ctx.rotate(p.spin * 0.3);
+      ctx.save(); ctx.translate(Math.round(px), Math.round(py)); ctx.rotate(p.spin * 0.3);
       ctx.fillStyle = fx[1]; ctx.fillRect(-p.r, -p.r, p.r * 2, p.r * 2);
       ctx.fillStyle = fx[2]; ctx.fillRect(-p.r, -p.r, p.r, p.r * 0.7);
       ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.strokeRect(-p.r, -p.r, p.r * 2, p.r * 2); ctx.restore();
       return;
     }
     if (t === 'ice' || t === 'bug' || t === 'flying') {
-      const a = Math.atan2(p.vy, p.vx);
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a);
+      const a = this.sa(Math.atan2(p.vy, p.vx));
+      ctx.save(); ctx.translate(px, py); ctx.rotate(a);
       ctx.fillStyle = fx[1]; ctx.beginPath(); ctx.moveTo(p.r * 3, 0); ctx.lineTo(-p.r * 2, -p.r); ctx.lineTo(-p.r * 2, p.r); ctx.closePath(); ctx.fill();
       ctx.fillStyle = fx[2]; ctx.fillRect(-p.r, -0.5, p.r * 3, 1);
       ctx.restore();
       return;
     }
     ctx.globalAlpha = 0.35; ctx.fillStyle = fx[0];
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, p.r * 2, 0, TAU); ctx.fill();
     ctx.globalAlpha = 1; ctx.fillStyle = fx[1];
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.2, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, p.r * 1.2, 0, TAU); ctx.fill();
     ctx.fillStyle = fx[2];
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.6, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, p.r * 0.6, 0, TAU); ctx.fill();
   }
 
   drawParticles(ctx) {
+    const dxs = this.flip ? -1 : 1;
     for (const p of this.particles) {
       const k = clamp(p.life / p.max, 0, 1);
+      const X = this.sx(p.x), Y = this.gy(p);
       ctx.globalAlpha = k;
       switch (p.kind) {
         case 'sq': {
           const s = Math.max(1, Math.round(p.size * (0.5 + k * 0.5)));
-          ctx.fillStyle = p.color; ctx.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s);
+          ctx.fillStyle = p.color; ctx.fillRect(Math.round(X - s / 2), Math.round(Y - s / 2), s, s);
           break;
         }
         case 'spark':
           ctx.strokeStyle = p.color; ctx.lineWidth = 1.2;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.06, p.y - p.vy * 0.06); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X - dxs * p.vx * 0.06, Y - p.vy * 0.06); ctx.stroke();
           break;
         case 'ring': {
           const r = p.r1 + (p.r0 - p.r1) * k;
           ctx.strokeStyle = p.color; ctx.lineWidth = p.w * k + 0.5;
-          ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.7, 0, 0, TAU); ctx.stroke();
+          ctx.beginPath(); ctx.ellipse(X, Y, r, r * 0.7, 0, 0, TAU); ctx.stroke();
           break;
         }
         case 'line':
           ctx.strokeStyle = p.color; ctx.lineWidth = 3 * k + 0.5;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x2, p.y2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(this.sx(p.x2), this.sy(p.y2, p.k2 ?? 19)); ctx.stroke();
           break;
         case 'bolt': {
           ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
           const r2 = mulberry((p.seed * 1e6) | 0);
-          ctx.beginPath(); let x = p.x + (r2() - 0.5) * 30, y = p.y - 220; ctx.moveTo(x, y);
-          while (y < p.y) { y += 14; x += (r2() - 0.5) * 18; if (y >= p.y) { x = p.x; y = p.y; } ctx.lineTo(x, y); }
+          ctx.beginPath(); let x = X + (r2() - 0.5) * 30, y = Y - 220; ctx.moveTo(x, y);
+          while (y < Y) { y += 14; x += (r2() - 0.5) * 18; if (y >= Y) { x = X; y = Y; } ctx.lineTo(x, y); }
           ctx.stroke(); ctx.strokeStyle = p.color; ctx.lineWidth = 1.2; ctx.stroke();
           break;
         }
@@ -1139,16 +1178,16 @@ class Battle {
       const pop = f.t < 0.1 ? 3 - f.t * 10 : 2;
       ctx.globalAlpha = f.t > 0.7 ? 1 - (f.t - 0.7) / 0.25 : 1;
       const w = f.img.width * pop, h = f.img.height * pop;
-      ctx.drawImage(f.img, Math.round(f.x - w / 2), Math.round(f.y - h), w, h);
+      ctx.drawImage(f.img, Math.round(this.sx(f.x) - w / 2), Math.round(this.gy(f) - h), w, h);
     }
     ctx.globalAlpha = 1;
     ctx.font = 'italic 900 10px "Lilita One", "Arial Black", "Segoe UI Black", Arial, sans-serif';
     ctx.textAlign = 'center'; ctx.lineJoin = 'round';
     for (const t of this.texts) {
       ctx.globalAlpha = t.t > 0.9 ? 1 - (t.t - 0.9) / 0.3 : 1;
-      const x = clamp(t.x, 50, W - 50);
-      ctx.lineWidth = 3; ctx.strokeStyle = '#2a1405'; ctx.strokeText(t.str, x, t.y);
-      ctx.fillStyle = t.color; ctx.fillText(t.str, x, t.y);
+      const x = clamp(this.sx(t.x), 50, W - 50), y = this.gy(t);
+      ctx.lineWidth = 3; ctx.strokeStyle = '#2a1405'; ctx.strokeText(t.str, x, y);
+      ctx.fillStyle = t.color; ctx.fillText(t.str, x, y);
     }
     ctx.globalAlpha = 1;
   }

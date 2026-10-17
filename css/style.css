@@ -237,3 +237,12 @@ body.tabletop .hud-side { display: none; }
 body.tabletop #hud { background: none; }
 body.tabletop #timer { top: 57.6cqh; left: 1.5cqw; transform: translateY(-50%) rotate(90deg); }
 body.tabletop #btn-pause { top: 57.6cqh; left: auto; right: 1.5cqw; transform: translateY(-50%); }
+/* ---------- online ---------- */
+#online-actions { display: flex; flex-direction: column; align-items: center; gap: 3cqw; }
+.join-row { display: flex; gap: 2cqw; align-items: center; }
+#join-code { width: 30cqw; font: 900 6cqw var(--font); text-align: center; letter-spacing: .15em; text-transform: uppercase;
+  padding: 1.4cqw 2cqw; border-radius: 2.4cqw; border: 0.6cqw solid var(--ink); background: #fffbea; color: var(--ink); user-select: text; -webkit-user-select: text; }
+#online-code { font: 900 14cqw var(--font); letter-spacing: .12em; color: #ffe066; -webkit-text-stroke: 1cqw #3a1d05; paint-order: stroke fill;
+  user-select: text; -webkit-user-select: text; }
+#online-status { font: 700 3.6cqw/1.4 system-ui, sans-serif; max-width: 80cqw; opacity: .9; min-height: 5cqw; }
+#online-status.err { color: #ff8a7a; }

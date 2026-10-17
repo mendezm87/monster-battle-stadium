@@ -67,7 +67,7 @@
       <div class="opt-group">
         <div class="opt-label">Mode</div>
         <div class="seg" id="opt-mode">
-          <button data-v="1p" class="on">1P vs CPU</button><button data-v="2p">2 Players</button>
+          <button data-v="1p" class="on">1P vs CPU</button><button data-v="2p">2 Players</button><button data-v="online">Online</button>
         </div>
       </div>
       <div class="opt-group" id="grp-diff">
@@ -96,9 +96,22 @@
         <li><b>Dodge!</b> White circles mark where an attack will land. Beams charge before they fire.</li>
         <li><b>Types matter.</b> Super-effective hits deal double damage. Matching your monster's type adds a bonus.</li>
         <li><b>Status:</b> PAR slows and may freeze you in place, BRN burns and weakens, PSN wears you down, FRZ locks you briefly.</li>
+        <li><b>Online:</b> one player hosts and gets a 5-letter code, the other joins with it. Each of you sees the arena from your own side.</li>
         <li><b>2 Players</b> on one keyboard: Player 1 moves with <kbd>WASD</kbd>, attacks with <kbd>R</kbd> <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> and swaps with <kbd>Q</kbd>. Player 2 moves with the arrow keys, attacks with <kbd>I</kbd> <kbd>O</kbd> <kbd>K</kbd> <kbd>L</kbd> (or numpad <kbd>1</kbd>&ndash;<kbd>4</kbd>) and swaps with <kbd>P</kbd>. On a phone or tablet, Player 2 sits across the table and gets their own controls. Gamepads work too.</li> <kbd>Esc</kbd> pauses (also <kbd>P</kbd> in 1P), <kbd>M</kbd> mutes.</li>
       </ul>
       <button class="big-btn" id="btn-help-back">Got it</button>
+    </div>
+
+    <div class="screen hidden" id="screen-online">
+      <h2>Online battle</h2>
+      <div id="online-actions">
+        <button class="big-btn" id="btn-host">HOST</button>
+        <div class="opt-label">or join with a code</div>
+        <div class="join-row"><input id="join-code" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE"><button class="small-btn" id="btn-join">Join</button></div>
+      </div>
+      <div id="online-code" class="hidden"></div>
+      <div id="online-status"></div>
+      <button class="small-btn" id="btn-online-back">Back</button>
     </div>
 
     <div class="screen hidden" id="screen-team">
@@ -140,6 +153,7 @@
   <script src="js/input.js"></script>
   <script src="js/battle.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/net.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

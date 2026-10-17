@@ -158,6 +158,8 @@ const MOVES = {
   wish:         { name: 'Wish', type: 'fairy', kind: 'heal', amount: 0.35, cd: 16 },
 };
 
+for (const k in MOVES) MOVES[k].id = k;   // lets moves be referenced by name over the network
+
 const ITEMS = {
   voltCharm:   { name: 'VOLT CHARM', boostType: 'electric', mul: 1.2 },
   emberStone:  { name: 'EMBER STONE', boostType: 'fire', mul: 1.2 },

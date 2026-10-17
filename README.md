@@ -2,7 +2,7 @@
 
 A real-time, top-down monster battle game with HD pixel art, built with plain HTML5 Canvas + JavaScript (no build step, no dependencies).
 
-You control your monster directly: move anywhere in the arena and fire off four moves (projectiles, beams, dashes, shockwaves, targeted strikes, buffs and heals). Each trainer brings a team of up to 6; knock out every enemy monster to win. Play against the CPU, or against a friend on the same device.
+You control your monster directly: move anywhere in the arena and fire off four moves (projectiles, beams, dashes, shockwaves, targeted strikes, buffs and heals). Each trainer brings a team of up to 6; knock out every enemy monster to win. Play against the CPU, against a friend on the same device, or online.
 
 ## Play
 
@@ -25,6 +25,12 @@ python3 -m http.server 8000
 
 Moves auto-aim at your opponent; the skill is in positioning and dodging.
 
+### Online
+
+Pick **Online** on the title screen. One player presses **Host** and shares the 5-letter code; the other types it in and presses **Join**. Each of you picks a team, and each of you sees the arena from your own side, with your monster at the bottom. Controls are the normal 1-player ones.
+
+The host's browser runs the battle; the guest's screen shows what the host sends, about 20 times a second. Players connect directly (WebRTC), using the free PeerJS matchmaking server to find each other. Some strict networks (certain office, school or mobile-carrier networks) block direct connections; if joining times out, try another network.
+
 ### 2 players
 
 Pick **2 Players** on the title screen. Each player picks a team, then you fight on one screen.
@@ -44,6 +50,7 @@ On a phone or tablet, Player 2 sits across the table: their stick and buttons ap
 - Move kinds: projectile, homing, beam (charge + sustained, spiral-ring visuals), dash, burst, delayed zone strikes (lightning, meteors, rock slides), buffs, heals
 - Status effects: paralysis, burn, poison, freeze, plus slows
 - Held items (damage boosts, regen, speed, defence, cooldown)
+- Online 2-player: room codes, peer-to-peer, each player sees the arena from their own side
 - Local 2-player mode: shared keyboard, tabletop touch screen or two gamepads
 - CPU opponent with 3 difficulties (dodges projectiles, beams and telegraphed zones; picks matchups when switching)
 - 3 stages: Snowy Summit, Ember Crater, Verdant Meadow — procedurally textured with weather
@@ -59,7 +66,8 @@ On a phone or tablet, Player 2 sits across the table: their stick and buttons ap
 | `js/sprites.js` | Procedural monster designs |
 | `js/arena.js` | Stage generation |
 | `js/battle.js` | Simulation, AI, effects and rendering |
-| `js/ui.js` / `js/main.js` | HUD, menus, team select, game loop |
+| `js/ui.js` / `js/main.js` | HUD, menus, team select, online lobby, game loop |
+| `js/net.js` | Online play: PeerJS connection, host snapshots, guest playback |
 | `js/input.js` / `js/audio.js` | Keyboard/touch/gamepad input for 1–2 players, sound |
 
 To add a monster: add a draw function to `MONSTER_ART` in `sprites.js` and an entry to `ROSTER` in `data.js` (moves come from `MOVES`).

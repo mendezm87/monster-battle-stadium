@@ -3,7 +3,7 @@
 const $ = sel => document.querySelector(sel);
 
 const UI = {
-  screens: ['title', 'help', 'team', 'pick', 'pause', 'result'],
+  screens: ['title', 'help', 'online', 'team', 'pick', 'pause', 'result'],
 
   show(name) {
     for (const s of this.screens) $('#screen-' + s).classList.toggle('hidden', s !== name);
@@ -22,11 +22,12 @@ const UI = {
   // ---------------- battle hooks (called by Battle) ----------------
   callout(side, name, type) {
     const el = document.createElement('div');
-    el.className = 'callout ' + (side === 'player' ? 'left' : 'right');
+    const pos = side === this.mySide ? 'left' : 'right';
+    el.className = 'callout ' + pos;
     el.style.borderColor = TYPES[type].color;
     el.textContent = name + '!';
     const box = $('#callouts');
-    [...box.querySelectorAll('.callout.' + (side === 'player' ? 'left' : 'right'))].forEach(n => n.remove());
+    [...box.querySelectorAll('.callout.' + pos)].forEach(n => n.remove());
     box.appendChild(el);
     setTimeout(() => el.remove(), 1400);
   },
@@ -40,7 +41,7 @@ const UI = {
   },
 
   onSendOut(side, mon) {
-    if (side === 'player') { this.buildMoveButtons(mon, 0); this.closeSwap(); }
+    if (side === this.mySide) { this.buildMoveButtons(mon, 0); this.closeSwap(); }
     else if (this.twoP) this.buildMoveButtons(mon, 1);
     this.hudCache = {};
   },
@@ -48,6 +49,13 @@ const UI = {
   // ---------------- swap tray (does not pause the fight) ----------------
   twoP: false,      // set by main.js for the current battle
   tabletop: false,  // 2-player on one touch screen, player 2's side rotated
+  mySide: 'player', // the side this screen plays: 'enemy' for an online guest
+  onSwapPick: null, // online guest: send the swap to the host instead of doing it
+
+  // this screen's own side of a battle
+  own(b) {
+    return this.mySide === 'enemy' ? { side: 'enemy', mon: b.E, team: b.e, idx: b.ei } : { side: 'player', mon: b.P, team: b.p, idx: b.pi };
+  },
   moveBtns: [],
 
   swapOpen: false,
@@ -56,8 +64,9 @@ const UI = {
     if (!battle || battle.state !== 'fight') return;
     const tray = $('#swap-tray');
     tray.innerHTML = '';
-    this.swapChips = battle.p.map((m, i) => {
-      if (i === battle.pi) return null;
+    const me = this.own(battle);
+    this.swapChips = me.team.map((m, i) => {
+      if (i === me.idx) return null;
       const chip = document.createElement('div');
       chip.className = 'swap-chip';
       const cv = document.createElement('canvas'); cv.width = 48; cv.height = 48;
@@ -66,7 +75,8 @@ const UI = {
       chip.insertAdjacentHTML('beforeend', '<div class="mini"><div></div></div>');
       chip.addEventListener('pointerdown', e => {
         e.preventDefault();
-        if (battle.swap('player', i)) Sfx.play('ball');
+        if (this.onSwapPick) this.onSwapPick(i);
+        else if (battle.swap(me.side, i)) Sfx.play('ball');
         this.closeSwap();
       });
       tray.appendChild(chip);
@@ -139,12 +149,17 @@ const UI = {
 
   hudCache: {},
   updateHud(battle) {
-    this.updateSide('#hud-p', battle.P, battle.p, battle.pi, 'p');
-    this.updateSide('#hud-e', battle.E, battle.e, battle.ei, 'e');
+    // left panel is always this screen's own side
+    const flip = this.mySide === 'enemy';
+    const sides = [['#hud-p', battle.P, battle.p, battle.pi, 'player'], ['#hud-e', battle.E, battle.e, battle.ei, 'rival']];
+    if (flip) sides.reverse();
+    this.updateSide('#hud-p', ...sides[0].slice(1), 'p');
+    this.updateSide('#hud-e', ...sides[1].slice(1), 'e');
     const t = Math.floor(battle.clock);
     const ts = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
     if (this.hudCache.time !== ts) { $('#timer').textContent = ts; this.hudCache.time = ts; }
-    const scd = Math.max(0, battle.swapCd.player);
+    const me = this.own(battle);
+    const scd = Math.max(0, battle.swapCd[me.side]);
     $('#btn-swap .cd').style.height = (scd / 8 * 100) + '%';
     if (this.swapOpen) {
       if (battle.state !== 'fight') this.closeSwap();
@@ -152,12 +167,12 @@ const UI = {
         const pct = c.mon.hp / c.mon.maxHp;
         c.bar.style.width = (pct * 100) + '%';
         c.bar.style.background = pct > 0.5 ? 'var(--hp-hi)' : pct > 0.2 ? 'var(--hp-mid)' : 'var(--hp-lo)';
-        c.el.classList.toggle('off', !battle.canSwap('player', c.i));
+        c.el.classList.toggle('off', !battle.canSwap(me.side, c.i));
       }
     }
     if (this.twoP) $('#btn-swap2 .cd').style.height = (Math.max(0, battle.swapCd.enemy) / 8 * 100) + '%';
     this.moveBtns.forEach((btns, p) => {
-      const m = p ? battle.E : battle.P;
+      const m = p ? battle.E : me.mon;
       if (!btns || (p && !this.twoP)) return;
       btns.forEach((b, i) => {
         const full = m.moves[i].cd * (m.item.cd || 1);
@@ -166,7 +181,8 @@ const UI = {
     });
   },
 
-  updateSide(sel, mon, team, idx, key) {
+  // trainer: which trainer palette to show ('player' / 'rival'); key: HUD cache slot
+  updateSide(sel, mon, team, idx, trainer, key) {
     const root = $(sel);
     const c = this.hudCache[key] || (this.hudCache[key] = { ghost: mon.hp });
     if (c.id !== mon.id + idx) {
@@ -175,7 +191,7 @@ const UI = {
       drawPortrait(root.querySelector('.portrait canvas'), mon.id, { zoom: 1.6, crop: true });
       const tc = root.querySelector('.trainer-icon canvas');
       const ctx = tc.getContext('2d'); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, 24, 24);
-      ctx.drawImage(trainerCanvas(key === 'p' ? 'player' : 'rival', false), 0, 0, 12, 12, 0, 0, 24, 24);
+      ctx.drawImage(trainerCanvas(trainer, false), 0, 0, 12, 12, 0, 0, 24, 24);
       c.tags = null;
     }
     const tags = mon.def.types.map(t => this.typeTag(t)).join('') +
