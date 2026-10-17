@@ -246,3 +246,4 @@ body.tabletop #btn-pause { top: 57.6cqh; left: auto; right: 1.5cqw; transform: t
   user-select: text; -webkit-user-select: text; }
 #online-status { font: 700 3.6cqw/1.4 system-ui, sans-serif; max-width: 80cqw; opacity: .9; min-height: 5cqw; }
 #online-status.err { color: #ff8a7a; }
+#version { position: absolute; right: 3cqw; bottom: 2cqw; font: 700 2.6cqw system-ui, sans-serif; opacity: .55; }

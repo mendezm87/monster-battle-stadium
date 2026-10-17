@@ -12,6 +12,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 
 - **Always push after committing** unless the owner says otherwise for that piece of work; no need to ask first, since changes can be rolled back.
 - **Work directly on `main`.** The owner doesn't want a clutter of branches; only make a branch if they ask for one, and merge and delete it when done.
+- **Bump `VERSION` in `js/main.js` with every change you push** (format `YYYY.MM.DD-rN`). It shows on the title screen, so the owner can check that a device is not running a cached older build (GitHub Pages lets browsers cache files for up to 10 minutes).
 
 ## Decisions already made (keep these)
 

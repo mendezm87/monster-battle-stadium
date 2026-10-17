@@ -22,7 +22,19 @@ const Net = (() => {
     { urls: 'stun:stun.cloudflare.com:3478' },
   ];
   const TURN_URL = 'https://monsterbattle.metered.live/api/v1/turn/credentials?apiKey=4dfcbabe48c3ae5dd2a2edc601a58454553f';
-  const LINK_FAILED = 'Found the game, but could not link the two devices. Put both on the same Wi-Fi and try again; mobile data and some networks block direct connections.';
+  const LINK_FAILED = 'Found the game, but could not link the two devices. Reload the page on both and try again. If it keeps failing, a VPN or a privacy extension on either device may be blocking the connection.';
+  let relayLoaded = false;
+
+  // Which kinds of route this browser could offer, for the error message:
+  // host = local network, srflx = public address, relay = the TURN relay.
+  async function routesTried(c) {
+    try {
+      const st = await c.peerConnection.getStats();
+      const kinds = new Set();
+      st.forEach(s => { if (s.type === 'local-candidate') kinds.add({ host: 'local', srflx: 'public', relay: 'relay' }[s.candidateType] || s.candidateType); });
+      return [...kinds].join(', ') || 'none';
+    } catch (e) { return 'unknown'; }
+  }
 
   let peer = null, conn = null, role = null;
   let onMessage = () => {}, onConnected = () => {}, onClosed = () => {};
@@ -33,7 +45,7 @@ const Net = (() => {
     if (!iceCache) {
       let servers = STUN;
       if (TURN_URL) {
-        try { servers = STUN.concat(await (await fetch(TURN_URL)).json()); }
+        try { servers = STUN.concat(await (await fetch(TURN_URL)).json()); relayLoaded = true; }
         catch (e) { console.warn('[net] no relay credentials', e); }
       }
       iceCache = servers;
@@ -124,12 +136,18 @@ const Net = (() => {
     return new Promise((res, rej) => {
       let done = false;
       const fail = msg => { if (done) return; done = true; clearTimeout(timer); leave(); rej(new Error(msg)); };
-      const timer = setTimeout(() => fail(LINK_FAILED), 20000);
-      peer.on('error', e => fail(e.type === 'peer-unavailable' ? 'No game with that code. Check it, and keep the game open on the host\'s screen.' : LINK_FAILED));
+      // add what was tried, so a screenshot of the message is enough to diagnose it
+      const failLink = async () => {
+        if (done) return;
+        const routes = await routesTried(c);
+        fail(`${LINK_FAILED} (Relay: ${relayLoaded ? 'loaded' : 'not loaded'}. Routes tried: ${routes}.)`);
+      };
+      const timer = setTimeout(failLink, 20000);
+      peer.on('error', e => (e.type === 'peer-unavailable' ? fail('No game with that code. Check it, and keep the game open on the host\'s screen.') : failLink()));
       const c = peer.connect(PREFIX + code.toUpperCase(), { reliable: true, serialization: 'json' });
       wire(c);
       // the room was found but no route between the devices works: say so right away
-      c.on('iceStateChanged', s => { if (s === 'failed') fail(LINK_FAILED); });
+      c.on('iceStateChanged', s => { if (s === 'failed') failLink(); });
       c.on('open', () => { if (done) return; done = true; clearTimeout(timer); res(); });
     });
   }
