@@ -21,7 +21,7 @@ const Net = (() => {
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
     { urls: 'stun:stun.cloudflare.com:3478' },
   ];
-  const TURN_URL = '';
+  const TURN_URL = 'https://monsterbattle.metered.live/api/v1/turn/credentials?apiKey=4dfcbabe48c3ae5dd2a2edc601a58454553f';
   const LINK_FAILED = 'Found the game, but could not link the two devices. Put both on the same Wi-Fi and try again; mobile data and some networks block direct connections.';
 
   let peer = null, conn = null, role = null;

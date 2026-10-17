@@ -25,6 +25,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 - **Poison status (PSN):** 2.5% max HP per second for 8 s, no attack drop. Poison and Steel types are immune.
 - **Online 2-player is host-authoritative over WebRTC (PeerJS + its free public signalling server).** The host runs the normal `Battle` with `p2Input` fed from the network; the guest builds a `Battle` with `puppet: true, flip: true`, never simulates, and draws snapshots (`js/net.js`, 20 per second, kept under PeerJS's ~16 KB JSON message limit by packing and capping particles). Between snapshots the guest moves things along their velocities. Sounds, callouts, banners and scorch marks are recorded on the host and replayed. The host owns pause, swaps, replacement picks and the result.
 - **Each online player sees their own side.** `Battle.flip` turns the arena 180° about the field centre (`MIRROR_Y`) but keeps sprites upright: anything drawn k above its ground spot is placed with `sy(y, k)`, and particles, numbers and texts carry `g`, their ground anchor. `UI.mySide` makes the HUD, callouts, move buttons and swap tray follow the guest's side. The guest's stick is negated before it is sent, because its view is rotated.
+- **Online play uses the owner's Metered.ca TURN relay** (free plan, app `monsterbattle`) when a direct link fails. PeerJS's own relay is dead, and even two devices on the same home Wi-Fi often can't link directly (browsers hide local addresses and many routers don't loop traffic back), so the relay matters. `TURN_URL` in `js/net.js` holds the credentials URL; its `apiKey` is Metered's front-end key (it can only fetch relay logins), so it's fine in this public repo. The free plan has a monthly data cap; a relayed match uses roughly 45 MB an hour.
 - **Local 2-player** (no network): a shared keyboard, a tabletop touch screen with player 2's controls rotated 180° along the top, or one gamepad per player. Player 2 is the top (`enemy`) side; `Battle.ai` is null in 2P. In tabletop mode the HUD panels hide and `Battle.drawBars` draws HP bars over each monster.
 
 ## Code map
@@ -57,7 +58,6 @@ There is no test suite. Check changes in headless Chromium through Playwright (i
 
 ## Open ideas (not decided)
 
-- **A TURN relay for online play.** PeerJS's built-in relay (`*.turn.peerjs.com`) no longer resolves, and the free Open Relay shared login stopped working, so today online play only works when the two devices can link directly (same Wi-Fi is the safe bet; mobile data often fails). `js/net.js` has a `TURN_URL` hook: set it to a provider endpoint that returns a JSON `iceServers` array (e.g. a free Metered.ca app's credentials URL) and relays are used automatically. This needs the owner to create the provider account.
 - Online play from the claude.ai artifact hasn't been tried; its sandbox may block the PeerJS server. GitHub Pages is the safe host for online play.
 - Rebalance the weakest originals (Shadefang, Sparkit, Frostling) if human play agrees with the bot round robin.
 - Gamepad support is written to the standard mapping but hasn't been tried with real hardware yet.
