@@ -1,20 +1,22 @@
 # Monster Battle Stadium
 
-Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Battlegrounds" YouTube short. Plain HTML5 Canvas + vanilla JS: no build step, no asset files, and no dependencies except PeerJS, which is loaded from a CDN only when someone opens the online menu. Scripts load as classic `<script>` tags in `index.html` (globals, not ES modules), so the page also works from `file://`. Runs on phone (touch), desktop (keyboard) and gamepads, for 1 player vs the CPU or 2 local players.
+Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Battlegrounds" YouTube short. Plain HTML5 Canvas + vanilla JS: no build step, no asset files, and no dependencies except PeerJS, which is loaded from a CDN only when someone opens the online menu. Scripts load as classic `<script>` tags in `index.html` (globals, not ES modules), so the page also works from `file://`. Runs on phone (touch), desktop (keyboard) and gamepads, for 1 player vs the CPU, 2 local players, or 2 players online.
 
 ## Where things live
 
-- Repo: `mendezm87/monster-battle-stadium` (public). Original branch: `claude/video-accessibility-check-rdngdp` (no `main` yet). The 18 types, beams for every type and 2-player mode were built on `feature/18-types-beams-2p`.
+- Repo: `mendezm87/monster-battle-stadium` (public). Everything lives on `main`, the default and only branch.
 - Playable claude.ai artifact (private to the owner): https://claude.ai/artifact/WCtXTByw25XMPjxCvRBfk8. It's published from a copy of `index.html` with only the body content, plus `css/` and `js/` as supporting files.
-- GitHub Pages (live, public): https://mendezm87.github.io/monster-battle-stadium/ . It serves the root of `feature/18-types-beams-2p`; if work moves to another branch, repoint Pages (repo Settings > Pages) or merge into that branch. Pages rebuilds on push, and a manual rebuild is `gh api -X POST repos/mendezm87/monster-battle-stadium/pages/builds`.
+- GitHub Pages (live, public): https://mendezm87.github.io/monster-battle-stadium/ . It serves the root of `main`. Pages rebuilds on push, and a manual rebuild is `gh api -X POST repos/mendezm87/monster-battle-stadium/pages/builds`.
 
 ## Workflow
 
 - **Always push after committing** unless the owner says otherwise for that piece of work; no need to ask first, since changes can be rolled back.
+- **Work directly on `main`.** The owner doesn't want a clutter of branches; only make a branch if they ask for one, and merge and delete it when done.
 
 ## Decisions already made (keep these)
 
 - **Original IP only.** Monsters, names and sprites are original designs, never Pokémon or Nintendo assets.
+- **Smugshi is the owner's real dog, Toshi** (a red Shiba Inu with a cream mask, white socks, white eyebrow spots, a big curled tail and a famously smug half-closed stare). Keep his look and personality: Zoomies, Shiba Scream, Smug Beam, Blanket Nap. Tuned to a 50% bot round-robin win rate.
 - **Music is an original chiptune** in the style of the Gold/Silver Mt. Silver Red battle. Never transcribe the real melody.
 - **Swapping mid-fight does not pause the game.** The swapping side is briefly open to attack, with an 8 s cooldown. HP and status carry over.
 - **Beam sound:** Normal is the base sound. Every other type adds a flavour layer (`BEAM_LAYERS` in `js/audio.js`), level-balanced through `LAYER_GAIN`.
