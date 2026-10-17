@@ -6,7 +6,9 @@ You control your monster directly: move anywhere in the arena and fire off four 
 
 ## Play
 
-Open `index.html` in a browser, or serve the folder:
+**▶ Play now: https://mendezm87.github.io/monster-battle-stadium/** (works on phone and desktop, no install)
+
+To run it locally, open `index.html` in a browser, or serve the folder:
 
 ```sh
 python3 -m http.server 8000
