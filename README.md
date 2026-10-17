@@ -47,7 +47,7 @@ On a phone or tablet, Player 2 sits across the table: their stick and buttons ap
 
 ## Features
 
-- 19 original monsters covering all 18 types, including Smugshi, based on the creator's Shiba Inu, Toshi, with the full type-effectiveness chart (immunities softened to ¼ damage) and same-type bonus
+- 20 original monsters covering all 18 types, including Mondaze, a burnt-out coffee-clutching sloth, and Smugshi, based on the creator's Shiba Inu, Toshi, with the full type-effectiveness chart (immunities softened to ¼ damage) and same-type bonus
 - Every type has a beam move, each with its own layered beam sound
 - Move kinds: projectile, homing, beam (charge + sustained, spiral-ring visuals), dash, burst, delayed zone strikes (lightning, meteors, rock slides), buffs, heals
 - Status effects: paralysis, burn, poison, freeze, plus slows

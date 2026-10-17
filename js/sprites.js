@@ -286,6 +286,31 @@ const MONSTER_ART = {
     g.px(14, 17, OUTLINE).px(15, 17, OUTLINE).px(16, 17, OUTLINE).px(17, 16, OUTLINE);          // smirk
   },
 
+  // An exhausted sloth clinging to its coffee: dark eye bands that double as
+  // tired bags, droopy half-shut eyes, a frown and messy bed hair.
+  mondaze(g) {
+    const F = P('#9a8a78', '#6e6052', '#bcae9c');
+    const C = P('#e8dcc6', '#c8b89e', '#fff6e6');
+    const M = P('#3aa8a0', '#24766f', '#6fd0c8');
+    g.ellipseM(11, 29, 3, 1.6, F, { edge: true });                                              // feet
+    g.ellipse(16, 22, 9, 7.5, F, { edge: true });                                               // slumped body
+    g.ellipse(16, 24, 5, 4.5, '#b0a090');                                                       // belly
+    g.poly([[12, 6], [13, 1], [15, 4], [17, 0], [18, 4], [21, 2], [20, 7]], F);                 // bed hair
+    g.ellipse(16, 11, 8.5, 7, F, { edge: true });                                               // head
+    g.ellipse(16, 12, 6.5, 5, C);                                                               // face
+    g.polyM([[8, 10], [14, 10], [14, 14], [10, 14]], '#4a3a30');                                 // droopy eye bands
+    g.rectM(11, 11, 2, 1, '#1a1222');                                                           // half-shut eyes
+    g.rectM(11, 12, 2, 1, '#7a6a8a');                                                           // eye bags
+    g.rect(15, 14, 2, 1, OUTLINE);                                                              // nose
+    g.px(14, 17, OUTLINE).px(15, 16, OUTLINE).px(16, 16, OUTLINE).px(17, 17, OUTLINE);          // frown
+    g.ellipseM(9, 21, 2.5, 4, F, { edge: true });                                               // arms
+    g.poly([[13, 21], [19, 21], [19, 27], [13, 27]], M, { edge: true });                        // coffee mug
+    g.rect(20, 22, 1, 3, '#24766f'); g.px(19, 22, '#24766f'); g.px(19, 24, '#24766f');          // handle
+    g.rect(14, 21, 4, 1, '#5a3a22');                                                            // coffee
+    g.pxM(12, 24, '#e8dcc6');                                                                   // claws round the mug
+    g.px(14, 19, '#eef2f6').px(15, 18, '#eef2f6').px(17, 19, '#eef2f6').px(18, 18, '#eef2f6');  // steam
+  },
+
   pixibelle(g) {
     const B = P('#ffc4dc', '#e88ab4', '#fff0f6');
     const Wn = P('#d8f4ff', '#a4d4f0', '#ffffff');

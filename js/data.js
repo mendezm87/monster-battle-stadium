@@ -161,6 +161,11 @@ const MOVES = {
   shibaScream:  { name: 'Shiba Scream', type: 'normal', kind: 'burst', power: 230, cd: 5, r: 60, delay: 0.35, status: ['par', 0.3], sfx: 'shibaScream' },
   smugBeam:     { name: 'Smug Beam', type: 'fairy', kind: 'beam', power: 250, cd: 5, charge: 0.45, dur: 0.6, width: 11, len: 280 },
   blanketNap:   { name: 'Blanket Nap', type: 'normal', kind: 'heal', amount: 0.35, cd: 15 },
+  // Mondaze: a burnt-out sloth running on coffee
+  deadlineDash: { name: 'Deadline Dash', type: 'dark', kind: 'dash', power: 260, cd: 3.5, speed: 320, dur: 0.45 },
+  heavySigh:    { name: 'Heavy Sigh', type: 'normal', kind: 'burst', power: 210, cd: 5, r: 70, delay: 0.5, slow: 2.5 },
+  blankStare:   { name: 'Blank Stare', type: 'dark', kind: 'beam', power: 300, cd: 5.5, charge: 0.6, dur: 0.6, width: 10, len: 290 },
+  coffeeBreak:  { name: 'Coffee Break', type: 'normal', kind: 'buff', buff: { spd: 1.6, atk: 1.3 }, dur: 8, cd: 14 },
 };
 
 for (const k in MOVES) MOVES[k].id = k;   // lets moves be referenced by name over the network
@@ -219,6 +224,8 @@ const ROSTER = [
   // Toshi, the owner's real Shiba Inu: fast, smug, loves a blanket
   { id: 'smugshi',   name: 'SMUGSHI',   types: ['normal', 'fairy'], hp: 1080, atk: 1.18, def: 1.0, spd: 110, size: 'M', item: 'snackPouch',
     moves: ['zoomies', 'shibaScream', 'smugBeam', 'blanketNap'] },
+  { id: 'mondaze',   name: 'MONDAZE',   types: ['normal', 'dark'], hp: 1220, atk: 1.2, def: 1.15, spd: 70, size: 'M', item: 'powerBand',
+    moves: ['deadlineDash', 'heavySigh', 'blankStare', 'coffeeBreak'] },
 ];
 
 const ROSTER_BY_ID = Object.fromEntries(ROSTER.map(m => [m.id, m]));
