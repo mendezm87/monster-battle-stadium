@@ -6,7 +6,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 
 - Repo: `mendezm87/monster-battle-stadium` (public). Original branch: `claude/video-accessibility-check-rdngdp` (no `main` yet). The 18 types, beams for every type and 2-player mode were built on `feature/18-types-beams-2p`.
 - Playable claude.ai artifact (private to the owner): https://claude.ai/artifact/WCtXTByw25XMPjxCvRBfk8. It's published from a copy of `index.html` with only the body content, plus `css/` and `js/` as supporting files.
-- GitHub Pages (once the owner enables it from that branch's root): https://mendezm87.github.io/monster-battle-stadium/
+- GitHub Pages (live, public): https://mendezm87.github.io/monster-battle-stadium/ . It serves the root of `feature/18-types-beams-2p`; if work moves to another branch, repoint Pages (repo Settings > Pages) or merge into that branch. Pages rebuilds on push, and a manual rebuild is `gh api -X POST repos/mendezm87/monster-battle-stadium/pages/builds`.
 
 ## Workflow
 
