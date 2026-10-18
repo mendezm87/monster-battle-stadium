@@ -1018,7 +1018,7 @@ class Battle {
     const STATUS_COL = { par: '#d6b21e', brn: '#e0582a', frz: '#4fb6d8', psn: '#9a3ab8' };
     for (const m of [this.P, this.E]) {
       if (!m.visible || m.fainted) continue;
-      const w = 26, x = Math.round(this.sx(m.x) - w / 2), y = Math.round(this.sy(m.y) - m.h - 6);
+      const w = 26, x = Math.round(this.sx(m.x) - w / 2), y = Math.round(this.sy(m.y) - m.h - 6 - (m.hover || 0));
       const pct = m.hp / m.maxHp;
       ctx.fillStyle = OUTLINE; ctx.fillRect(x - 1, y - 1, w + 2, 5);
       ctx.fillStyle = '#2a2638'; ctx.fillRect(x, y, w, 3);
@@ -1056,13 +1056,20 @@ class Battle {
     if (m.status === 'frz' || m.stunT > 0 || m.fainted) bob = 0;
     const X = Math.round(this.sx(m.x)), Y = Math.round(this.sy(m.y));
     const face = this.flip ? -m.face : m.face;
+    // flying monsters hover above their shadow with a slow bob and flap their wings (they drop
+    // to the ground when frozen or fainted). FLYERS and the flap frames live in sprites.js.
+    const fly = sp.fly, grounded = m.status === 'frz' || m.fainted, phase = (m.x0 ?? (m.x0 = Math.random() * 10));
+    const hover = fly && !grounded ? Math.round(fly.hover + Math.sin(this.time * 2.4 + phase) * 1.5) : 0;
+    if (hover) bob = 0;
+    m.hover = hover;
+    const flapping = fly && sp.flap && !grounded && m.stunT <= 0 && Math.sin((this.time * fly.flap * (moving ? 1.3 : 1) + phase) * TAU) > 0;
     // your own monster gets the blue ring
     const mine = m.side === (this.flip ? 'enemy' : 'player');
 
     // ground marker + shadow
     ctx.globalAlpha = alpha;
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath(); ctx.ellipse(X, Y, m.r + 2, m.r * 0.42, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(X, Y, (m.r + 2) * (hover ? 0.8 : 1), m.r * 0.42 * (hover ? 0.8 : 1), 0, 0, TAU); ctx.fill();
     ctx.strokeStyle = mine ? 'rgba(90,160,255,0.75)' : 'rgba(255,90,80,0.6)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(X, Y, m.r + 4, m.r * 0.5 + 1, 0, 0, TAU); ctx.stroke();
@@ -1084,12 +1091,12 @@ class Battle {
     }
 
     ctx.save();
-    ctx.translate(X, Math.round(Y + bob + sink));
+    ctx.translate(X, Math.round(Y + bob + sink - hover));
     if (face < 0) ctx.scale(-1, 1);
     const roll = m.action && m.action.kind === 'dash' && m.action.mv && m.action.mv.fx === 'roll' && m.action.t > 0.1;
     if (roll) { ctx.translate(0, -S / 2 + 3); ctx.rotate((m.action.t - 0.1) * 22); ctx.translate(0, S / 2 - 3); }   // Rollout: tumble along
     const dx = -S / 2, dy = -S + 3, view = this.viewOf(m.view);
-    ctx.drawImage(sp.views[view], dx, dy, S, S);
+    ctx.drawImage((flapping ? sp.flap : sp.views)[view], dx, dy, S, S);
     let tint = null, ta = 0;
     if (m.flash > 0) { tint = '#ffffff'; ta = Math.min(1, m.flash * 8); }
     else if (m.fainted) { tint = '#ffffff'; ta = Math.min(0.8, m.fadeT); }

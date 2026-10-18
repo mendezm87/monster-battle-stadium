@@ -82,3 +82,7 @@ There is no test suite. Check changes in headless Chromium through Playwright (i
 - Online play from the claude.ai artifact hasn't been tried; its sandbox may block the PeerJS server. GitHub Pages is the safe host for online play.
 - Rebalance the weakest originals (Shadefang, Sparkit, Frostling) if human play agrees with the bot round robin.
 - Gamepad support is written to the standard mapping but hasn't been tried with real hardware yet.
+
+## Flying monsters (r7, ported from Monster Rush r35)
+
+Galewing, Pixibelle and Drakorn hover over their shadow and flap; Wispurr floats. `FLYERS`, the wing helpers and the flap frames live in the shared `js/sprites.js`; `drawMon` in `js/battle.js` lifts them (`m.hover`), swaps in `SPRITES[id].flap`, and drops them when frozen or fainted. Looks only: hitboxes and attacks are unchanged.
