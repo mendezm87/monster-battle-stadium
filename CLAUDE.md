@@ -90,3 +90,7 @@ Galewing, Pixibelle and Drakorn hover over their shadow and flap; Wispurr floats
 ## Animation poses (r8, ported from Monster Rush r36)
 
 `posed`, `tintOf` and `monPose` in the shared `js/sprites.js` bend each monster into poses (bouncy walk, breathing, wind-ups, lunges, hit squish and recoil, pop-in, faint). `drawMon` in `js/battle.js` draws the posed canvas; `hit` sets `m.hurtT`, sending in sets `m.popT`. Online, the guest's `applyMon` (net.js) starts the hit pose when the hit flash appears and the pop when a monster becomes visible, since those timers aren't sent. r9: calmer pacing after the owner found r8 jittery (3-frame hop walk, hit pose on real hits only, slower flaps); see Monster Rush's notes.
+
+## Rigged animation (r10, from Monster Rush r38)
+
+The shared `js/sprites.js` now animates rigged monsters with real frames (`RIGGED`, `RIG_FRAMES`, `part()`, `monAnim`); only Smugshi so far. `drawMon` uses `monAnim(m, phase, flying)`'s `views` and draws them through `posed`. Unrigged monsters just hop.

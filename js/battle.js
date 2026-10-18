@@ -581,7 +581,7 @@ class Battle {
       m.x = clamp(m.x + (m.vx + m.kx) * dt, FIELD.x0 + m.r, FIELD.x1 - m.r);
       m.y = clamp(m.y + (m.vy + m.ky) * dt, FIELD.y0 + m.r, FIELD.y1 - 2);
       m.flash = Math.max(0, m.flash - dt);
-      m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.popT = Math.max(0, (m.popT || 0) - dt);   // animation poses (monPose)
+      m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.popT = Math.max(0, (m.popT || 0) - dt);   // animation (monAnim)
     }
   }
 
@@ -1061,9 +1061,9 @@ class Battle {
     const fly = sp.fly, grounded = m.status === 'frz' || m.fainted, phase = (m.x0 ?? (m.x0 = Math.random() * 10));
     const hover = fly && !grounded ? Math.round(fly.hover + Math.sin(this.time * 2.4 + phase) * 1.5) : 0;
     m.hover = hover;
-    // its pose (sprites.js monPose): walking hops, breathing, winding up, lunging, getting hit
+    // how it looks right now (sprites.js monAnim): a rigged monster's animation frame, or a hop / dip
     const still = m.status === 'frz' || m.stunT > 0 || m.lift > 0.01;
-    const pose = still && !m.fainted ? { sq: 0, sh: 0, dy: 0 } : monPose(m, this.time, moving, phase, !!hover);
+    const pose = still && !m.fainted ? { views: sp.views, sq: 0, sh: 0, dy: 0 } : monAnim(m, phase, !!hover);
     const bob = -pose.dy;
     const flapping = fly && sp.flap && !grounded && m.stunT <= 0 && Math.sin((this.time * fly.flap * (moving ? 1.3 : 1) + phase) * TAU) > 0;
     // your own monster gets the blue ring
@@ -1099,7 +1099,7 @@ class Battle {
     const roll = m.action && m.action.kind === 'dash' && m.action.mv && m.action.mv.fx === 'roll' && m.action.t > 0.1;
     if (roll) { ctx.translate(0, -S / 2 + 3); ctx.rotate((m.action.t - 0.1) * 22); ctx.translate(0, S / 2 - 3); }   // Rollout: tumble along
     const view = this.viewOf(m.view);
-    const pic = posed((flapping ? sp.flap : sp.views)[view], pose.sq, pose.sh), k = S / sp.size, pw = pic.width * k, ph = pic.height * k;
+    const pic = posed((pose.views !== sp.views ? pose.views : flapping ? sp.flap : sp.views)[view], pose.sq, pose.sh), k = S / sp.size, pw = pic.width * k, ph = pic.height * k;
     const dx = -pw / 2, dy = 3 - ph;
     ctx.drawImage(pic, dx, dy, pw, ph);
     let tint = null, ta = 0;

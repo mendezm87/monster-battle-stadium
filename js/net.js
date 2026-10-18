@@ -325,7 +325,7 @@ const Net = (() => {
   }
 
   function applyMon(m, d) {
-    // animation poses (sprites.js monPose): a fresh hit flash means it was hit, appearing means it popped out
+    // animation (sprites.js monAnim): a fresh hit flash means it was hit, appearing means it popped out
     if (d.fl > (m.flash || 0) + 0.05) m.hurtT = 0.22;
     if (d.v && !m.visible) m.popT = 0.3;
     Object.assign(m, { x: d.x, y: d.y, vx: d.vx, vy: d.vy, kx: d.kx, ky: d.ky, face: d.f, view: d.vw || 'front', walkT: d.w,
