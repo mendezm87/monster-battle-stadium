@@ -479,7 +479,7 @@ class Battle {
     tgt.hp = Math.max(0, tgt.hp - dmg);
     src.dmgDealt += dmg;
     tgt.flash = 0.12;
-    if (mult >= 1 && !(tgt.hurtT > 0.08)) tgt.hurtT = 0.2;   // the hit pose: real hits only, not beam or burn ticks
+    if (mult >= 1 && animSince(tgt, 'hurt') > 0.12) animMark(tgt, 'hurt');   // the hit pose: real hits only, not beam or burn ticks
 
     const fresh = this.number(tgt, dmg, opts.merge);
     const kb = opts.kb ?? Math.atan2(tgt.cy - src.cy, tgt.x - src.x);
@@ -581,7 +581,6 @@ class Battle {
       m.x = clamp(m.x + (m.vx + m.kx) * dt, FIELD.x0 + m.r, FIELD.x1 - m.r);
       m.y = clamp(m.y + (m.vy + m.ky) * dt, FIELD.y0 + m.r, FIELD.y1 - 2);
       m.flash = Math.max(0, m.flash - dt);
-      m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.popT = Math.max(0, (m.popT || 0) - dt);   // animation (monAnim)
     }
   }
 
@@ -879,7 +878,7 @@ class Battle {
       if (b.t >= b.dur && !b.done) {
         b.done = true;
         const m = b.side === 'player' ? this.P : this.E;
-        m.visible = true; m.flash = 0.35; m.invuln = 0.4; m.popT = 0.3;
+        m.visible = true; m.flash = 0.35; m.invuln = 0.4; animMark(m, 'pop');
         this.particles.push({ x: b.to.x, y: b.to.y, r0: 2, r1: 26, life: 0.35, max: 0.35, color: '#ffffff', kind: 'ring', w: 3 });
         this.burst(b.to.x, b.to.y, ['#ffffff', '#ffe9a0', '#ffffff'], 20, 90);
         Sfx.play('pop');
