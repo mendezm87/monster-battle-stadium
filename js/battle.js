@@ -478,7 +478,8 @@ class Battle {
     dmg = Math.max(1, Math.round(dmg));
     tgt.hp = Math.max(0, tgt.hp - dmg);
     src.dmgDealt += dmg;
-    tgt.flash = 0.12; tgt.hurtT = 0.22;
+    tgt.flash = 0.12;
+    if (mult >= 1 && !(tgt.hurtT > 0.08)) tgt.hurtT = 0.2;   // the hit pose: real hits only, not beam or burn ticks
 
     const fresh = this.number(tgt, dmg, opts.merge);
     const kb = opts.kb ?? Math.atan2(tgt.cy - src.cy, tgt.x - src.x);
