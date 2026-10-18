@@ -33,7 +33,7 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 
 ## Custom move sets (owner's request, 2026-10-17)
 
-On the team screen, tapping one of a monster's moves opens the moves it can learn; picking one swaps it in (a move already in the set trades places). Rules in `js/movesets.js`: the pool is the monster's own moves plus moves other monsters know of its types or its types' themed **coverage** types (`COVERAGE`, like learnsets: fire also learns ground, dragon and normal), except **signature moves** (Smugshi's and Mondaze's), which stay with their owner. A set is 4 different moves with at least one that deals damage. Sets are saved per player in this browser (`mbs.movesets.v1`; player 2 has their own in local 2-player). Teams go into `Battle` as ids or `{ id, moves }`; `validSet` checks every set (bad or unknown ones fall back to the defaults, which also guards online). Online, your sets travel with your team. The CPU always uses default sets. Pools give each monster 7-26 extra moves; balance with custom sets hasn't been tuned (the 1v1 round-robin numbers are for default sets).
+On the team screen, tapping one of a monster's moves opens the moves it can learn; picking one swaps it in (a move already in the set trades places). Rules in `js/movesets.js`: the pool is the monster's own moves plus moves other monsters know of its types or its types' themed **coverage** types (`COVERAGE`, like learnsets: fire also learns ground, dragon and normal), except **signature moves** (Smugshi's, Mondaze's and Smugshogun's) and moves only an evolved form knows, which stay with their owner. A set is 4 different moves with at least one that deals damage. Sets are saved per player in this browser (`mbs.movesets.v1`; player 2 has their own in local 2-player). Teams go into `Battle` as ids or `{ id, moves }`; `validSet` checks every set (bad or unknown ones fall back to the defaults, which also guards online). Online, your sets travel with your team. The CPU always uses default sets. Pools give each monster 7-26 extra moves; balance with custom sets hasn't been tuned (the 1v1 round-robin numbers are for default sets).
 
 ## Shared with Monster Rush (ported 2026-10-17)
 
@@ -54,7 +54,7 @@ Not ported (Rush-only or gameplay that would need its own balance and network wo
 | `js/data.js` | `TYPES` (colours and FX palettes), `CHART`, `MOVES`, `ITEMS`, `ROSTER`, `DIFFICULTY` |
 | `js/pixel.js` | `PixGrid` (shaded ellipses and polygons, auto-outline), bitmap digits, trainer sprites |
 | `js/sprites.js` | `MONSTER_ART[id](grid, view)` and `MONSTER_ART_DIAG`: the monster designs (32px, or 44px for size `L`) in 5 views (shared with Monster Rush) |
-| `js/movesets.js` | Custom move sets: `movePool`, `validSet`, `MoveSets` (saved choices, `team(p, ids)`) |
+| `js/movesets.js` | Custom move sets: `movePool`, `validSet`, `MoveSets` (saved choices, `team(p, ids)`). **Shared with Monster Rush** (where monsters learn moves from these pools during runs): keep both copies identical |
 | `js/fx.js` | Attack art (shared with Monster Rush): `FXLayer`, `FXD` helpers, `FX_PARTS`, the drawing of shots, beams, blasts and effects |
 | `js/arena.js` | Stage generation; `W`/`H` = 288×512 world, `FIELD` bounds |
 | `js/battle.js` | `Mon`, `AI`, `Battle`: simulation, effects, rendering (canvas is 2× world; sprites drawn at `SPR_SCALE` 1.5) |

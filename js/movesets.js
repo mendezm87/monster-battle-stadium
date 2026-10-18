@@ -3,11 +3,14 @@
 // The pool for a monster is its own 4 moves plus every move another monster knows whose type is
 // one of its own types or one of their themed "coverage" types (COVERAGE, a bit like learnsets:
 // fire can also learn ground, dragon and normal moves), except signature moves, which stay with
-// their owner (Smugshi is the owner's dog Toshi; Mondaze has its own personality moves).
-// A set is 4 different moves with at least one that does damage. Sets are kept per player in
-// this browser; the CPU uses the defaults.
+// their owner (Smugshi is the owner's dog Toshi; Mondaze has its own personality moves), and
+// moves only an evolved form knows (they're what evolving brings). A set is 4 different moves
+// with at least one that does damage.
+// Shared by both games (keep the file identical): Monster Battle Stadium uses MoveSets for its
+// team screen (sets kept per player in this browser; the CPU uses the defaults); Monster Rush
+// uses movePool for the moves monsters learn as they level up during a run.
 
-const SIGNATURE = new Set(['smugshi', 'mondaze'].flatMap(id => ROSTER_BY_ID[id].moves));
+const SIGNATURE = new Set(['smugshi', 'mondaze', 'smugshogun'].filter(id => ROSTER_BY_ID[id]).flatMap(id => ROSTER_BY_ID[id].moves));
 const DAMAGING = k => !['buff', 'heal'].includes(MOVES[k].kind);
 const COVERAGE = {
   normal: ['fighting', 'ground'], fire: ['ground', 'dragon', 'normal'], water: ['ice', 'dragon', 'normal'],
@@ -23,8 +26,8 @@ function movePool(id) {
   if (_pools[id]) return _pools[id];
   const def = ROSTER_BY_ID[id], pool = [...def.moves];
   const types = new Set(def.types.flatMap(t => [t, ...(COVERAGE[t] || [])]));
-  for (const m of ROSTER) {
-    if (m.id === id) continue;
+  for (const m of ALL_MONS()) {
+    if (m.id === id || m.from) continue;   // evolved forms' moves stay with them
     for (const k of m.moves) {
       if (pool.includes(k) || SIGNATURE.has(k)) continue;
       if (types.has(MOVES[k].type)) pool.push(k);
