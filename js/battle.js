@@ -42,13 +42,13 @@ function tinted(id, color, view = 'front') {
 
 // ------------------------------------------------------------------ Monster
 class Mon {
-  constructor(def, side) {
+  constructor(def, side, moves = null) {
     this.def = def; this.id = def.id; this.side = side;
     this.item = ITEMS[def.item] || {};
     this.maxHp = def.hp; this.hp = def.hp;
     this.r = def.size === 'L' ? 17 : 12;
     this.h = SPRITES[def.id].size * SPR_SCALE;
-    this.moves = def.moves.map(k => MOVES[k]);
+    this.moves = (moves || def.moves).map(k => MOVES[k]);
     const melee = this.moves.filter(m => m.kind === 'dash' || m.kind === 'burst' || m.kind === 'vortex').length;
     const ranged = this.moves.filter(m => ['projectile', 'beam', 'zone'].includes(m.kind)).length;
     this.prefRange = melee > ranged ? 45 : melee === ranged ? 85 : 125;
@@ -212,8 +212,10 @@ class Battle {
   constructor({ playerTeam, enemyTeam, difficulty, stage, ui, twoP = false, overheadBars = false,
     seed = (Math.random() * 1e9) | 0, p2Input = null, flip = false, puppet = false, online = false }) {
     this.ui = ui;
-    this.p = playerTeam.map(id => new Mon(ROSTER_BY_ID[id], 'player'));
-    this.e = enemyTeam.map(id => new Mon(ROSTER_BY_ID[id], 'enemy'));
+    // a team member is a monster id, or { id, moves } with a custom move set (movesets.js)
+    const mon = (t, side) => typeof t === 'string' ? new Mon(ROSTER_BY_ID[t], side) : new Mon(ROSTER_BY_ID[t.id], side, validSet(t.id, t.moves));
+    this.p = playerTeam.map(t => mon(t, 'player'));
+    this.e = enemyTeam.map(t => mon(t, 'enemy'));
     this.pi = 0; this.ei = 0;
     this.diff = DIFFICULTY[difficulty];
     this.twoP = twoP; this.overheadBars = overheadBars;

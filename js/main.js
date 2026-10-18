@@ -2,7 +2,7 @@
 
 // Shown on the title screen so players can tell whether their browser has the latest
 // build (GitHub Pages lets browsers cache files for up to 10 minutes). Bump on every release.
-const VERSION = '2026.10.17-r3';
+const VERSION = '2026.10.17-r4';
 
 const App = {
   mode: '1p',       // '1p' vs the CPU, or '2p' local
@@ -186,6 +186,7 @@ function startOnlineBattle() {
 
 // ---------- team select ----------
 let detailId = null;
+let editSlot = -1;   // which move slot is being swapped on the team screen (-1 = none)
 const twoP = () => App.mode === '2p';
 const online = () => App.mode === 'online' && Net.active;
 // a tabletop game is 2 players sharing one touch screen
@@ -219,6 +220,7 @@ function toggleTeam(id) {
   const i = team.indexOf(id);
   if (i >= 0) team.splice(i, 1);
   else if (team.length < 6) team.push(id);
+  if (detailId !== id) editSlot = -1;
   detailId = id;
   refreshTeam();
 }
@@ -246,13 +248,29 @@ function refreshTeam() {
           : `<div class="hint">Tap monsters to add them to your team (up to 6). The CPU fields a team of the same size.</div>`;
     return;
   }
-  const m = ROSTER_BY_ID[detailId];
-  d.innerHTML = `<canvas width="88" height="88"></canvas><div>
+  const m = ROSTER_BY_ID[detailId], p = App.picking, cur = MoveSets.get(p, m.id);
+  const mvBtn = (k, attrs, cls = '') => `<button class="d-move ${cls}" ${attrs} style="background:${TYPES[MOVES[k].type].color}">${MOVES[k].name}<small>${MOVES[k].kind}${MOVES[k].power ? ' ' + MOVES[k].power : ''}</small></button>`;
+  let pool = '';
+  if (editSlot >= 0) {
+    pool = `<div class="d-pool-title">Swap <b>${MOVES[cur[editSlot]].name}</b> for:</div><div class="d-pool">${movePool(m.id).filter(k => k !== cur[editSlot]).map(k => mvBtn(k, `data-mv="${k}"`, cur.includes(k) ? 'used' : '')).join('')}</div>`;
+  }
+  d.innerHTML = `<canvas width="88" height="88"></canvas><div class="d-body">
     <div class="d-name">${m.name} ${m.types.map(t => UI.typeTag(t)).join(' ')}</div>
     <div class="d-stats">HP ${m.hp} · ATK ${Math.round(m.atk * 100)} · DEF ${Math.round(m.def * 100)} · SPD ${m.spd} · ${ITEMS[m.item].name}</div>
-    <div class="d-moves">${m.moves.map(k => `<div class="d-move" style="background:${TYPES[MOVES[k].type].color}">${MOVES[k].name}</div>`).join('')}</div></div>`;
+    <div class="d-moves">${cur.map((k, i) => mvBtn(k, `data-slot="${i}"`, i === editSlot ? 'sel' : '')).join('')}</div>
+    <div class="d-tip">${editSlot >= 0 ? 'Pick a move to put in that slot (a dimmed one trades places).' : 'Tap a move to swap it for another one ' + m.name + ' can learn.'}${MoveSets.isDefault(p, m.id) ? '' : ' <button class="d-reset">Default moves</button>'}</div>
+    ${pool}</div>`;
   drawPortrait(d.querySelector('canvas'), m.id);
 }
+// Swapping moves (movesets.js): tap a move to pick its slot, then a move from the pool.
+$('#team-detail').addEventListener('click', e => {
+  const b = e.target.closest('button'), p = App.picking;
+  if (!b || !detailId || (online() && Online.myTeam)) return;
+  if (b.dataset.slot !== undefined) { const s = +b.dataset.slot; editSlot = editSlot === s ? -1 : s; Sfx.play('select'); }
+  else if (b.dataset.mv) { if (MoveSets.set(p, detailId, editSlot, b.dataset.mv)) { Sfx.play('buff'); editSlot = -1; } else { Sfx.play('back'); UI.banner('NEEDS AN ATTACK'); } }
+  else if (b.classList.contains('d-reset')) { MoveSets.reset(p, detailId); editSlot = -1; Sfx.play('back'); }
+  refreshTeam();
+});
 
 $('#btn-team-back').onclick = () => {
   Sfx.play('back');
@@ -271,7 +289,7 @@ $('#btn-team-random').onclick = () => {
 $('#btn-team-go').onclick = () => {
   Sfx.play('select');
   if (online()) {
-    Online.myTeam = App.team.slice();
+    Online.myTeam = MoveSets.team(0, App.team);   // ids with their move sets
     if (Net.role === 'guest') Net.send({ t: 'team', ids: Online.myTeam });
     refreshTeam();
     maybeStartOnline();
@@ -309,7 +327,7 @@ function startBattle(net = null) {
   UI.closeSwap();
   Input.reset();
   App.paused = false;
-  let opts = { playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI,
+  let opts = { playerTeam: MoveSets.team(0, App.team), enemyTeam: twoP() ? MoveSets.team(1, App.enemyTeam) : App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI,
     twoP: UI.twoP, overheadBars: UI.tabletop };
   if (net) opts = { ...opts, ...Net.battleOptions(net) };
   Sfx.init(); Sfx.resume(); Sfx.music.start(STAGE_SONGS[opts.stage] || 'rush');

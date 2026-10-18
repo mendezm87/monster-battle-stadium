@@ -177,6 +177,7 @@ kbd { background: #2b2540; border: 0.3cqw solid #555; border-bottom-width: 0.8cq
 
 #screen-team { justify-content: flex-start; padding: 4cqw 3cqw; gap: 2cqw; background: rgba(10,8,18,.9); }
 #screen-team h2 { font-size: 6cqw; }
+#screen-team > * { flex-shrink: 0; }   /* scroll rather than squeeze when the move list opens */
 #team-count { color: #fff; font-size: 4.4cqw; }
 #team-detail { width: 100%; min-height: 26cqw; background: var(--panel); border-radius: 2.4cqw; padding: 2cqw;
   display: flex; gap: 2.4cqw; align-items: center; text-align: left; border: 0.4cqw solid rgba(255,255,255,.1); }
@@ -184,7 +185,16 @@ kbd { background: #2b2540; border: 0.3cqw solid #555; border-bottom-width: 0.8cq
 #team-detail .d-name { font-size: 5cqw; }
 #team-detail .d-stats { font: 700 3cqw system-ui, sans-serif; opacity: .85; margin: 0.8cqw 0; }
 #team-detail .d-moves { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8cqw; }
-#team-detail .d-move { font-size: 2.7cqw; padding: 0.6cqw 1.2cqw; border-radius: 1cqw; -webkit-text-stroke: 0.25cqw rgba(0,0,0,.55); paint-order: stroke fill; }
+#team-detail .d-move { font: 400 2.7cqw var(--font); color: #fff; text-align: left; border: 0.4cqw solid rgba(0,0,0,.35); cursor: pointer;
+  padding: 0.6cqw 1.2cqw; border-radius: 1cqw; -webkit-text-stroke: 0.25cqw rgba(0,0,0,.55); paint-order: stroke fill; }
+#team-detail .d-move small { display: block; font: 700 1.9cqw system-ui, sans-serif; -webkit-text-stroke: 0; opacity: .85; }
+#team-detail .d-move.sel { outline: 0.6cqw solid var(--gold); }
+#team-detail .d-move.used { opacity: .45; }
+#team-detail .d-body { flex: 1; min-width: 0; }
+#team-detail .d-tip { font: 700 2.5cqw system-ui, sans-serif; opacity: .8; margin-top: 1cqw; }
+#team-detail .d-reset { font: 400 2.5cqw var(--font); padding: 0.3cqw 1.4cqw; border-radius: 1cqw; border: 0.4cqw solid var(--ink); background: #3a3358; color: #fff; cursor: pointer; margin-left: 1cqw; }
+#team-detail .d-pool-title { font: 700 2.6cqw system-ui, sans-serif; margin: 1.2cqw 0 0.6cqw; }
+#team-detail .d-pool { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8cqw; }
 #team-detail .hint { font: 700 3.4cqw system-ui, sans-serif; opacity: .7; }
 #roster { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2cqw; }
 .card { position: relative; background: #241e38; border-radius: 2.4cqw; padding: 1.4cqw; border: 0.6cqw solid #3a3358; cursor: pointer; }
