@@ -244,7 +244,7 @@ const Net = (() => {
       x: r1(m.x), y: r1(m.y), vx: r1(m.vx), vy: r1(m.vy), kx: r1(m.kx), ky: r1(m.ky), f: m.face, vw: m.view, w: r1(m.walkT),
       fl: +m.flash.toFixed(2), v: m.visible ? 1 : 0, ft: +m.fadeT.toFixed(2), st: +m.stunT.toFixed(2),
       cd: m.cd.map(r1), b: m.buffs.map(b => [b.stat, b.mul, r1(b.t)]),
-      a: a ? { k: a.kind, t: +a.t.toFixed(3), d: a.dir, p: a.phase, m: a.mv ? a.mv.id : 0, dn: a.done ? 1 : 0, du: a.dur } : 0,
+      a: a ? { k: a.kind, t: +a.t.toFixed(3), d: a.dir, p: a.phase, m: a.mv ? a.mv.id : 0, dn: a.done ? 1 : 0, du: a.dur, po: a.pose } : 0,
       g: m.ghosts.map(g => [r1(g.x), r1(g.y), g.face, +g.t.toFixed(2), g.color, g.view]),
     };
   }
@@ -331,7 +331,7 @@ const Net = (() => {
     Object.assign(m, { x: d.x, y: d.y, vx: d.vx, vy: d.vy, kx: d.kx, ky: d.ky, face: d.f, view: d.vw || 'front', walkT: d.w,
       flash: d.fl, visible: !!d.v, fadeT: d.ft, stunT: d.st, cd: d.cd });
     m.buffs = d.b.map(([stat, mul, t]) => ({ stat, mul, t }));
-    m.action = d.a ? { kind: d.a.k, t: d.a.t, dir: d.a.d, phase: d.a.p, mv: d.a.m ? MOVES[d.a.m] : null, done: !!d.a.dn, dur: d.a.du, lock: true } : null;
+    m.action = d.a ? { kind: d.a.k, t: d.a.t, dir: d.a.d, phase: d.a.p, mv: d.a.m ? MOVES[d.a.m] : null, done: !!d.a.dn, dur: d.a.du, pose: d.a.po, lock: true } : null;
     m.ghosts = d.g.map(([x, y, face, t, color, view]) => ({ x, y, face, t, color, view }));
   }
   function applyLite(m, [hp, fainted, status]) { m.hp = hp; m.fainted = !!fainted; m.status = status || null; }

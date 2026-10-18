@@ -404,7 +404,7 @@ class Battle {
             out: mv.boomerang ? mv.range / mv.speed : 0, back: false, hitCd: 0,
           });
         }
-        m.action = { kind: 'cast', t: 0, dur: 0.18, lock: true };
+        m.action = { kind: 'cast', t: 0, dur: 0.18, lock: true, mv, pose: 'throw' };
         Sfx.move(mv, 'cast');
         break;
       }
@@ -435,7 +435,7 @@ class Battle {
             r: mv.r, t: 0, delay: mv.delay + k * 0.18, mv, owner: m, done: false, tick: 0, id: _uid++,
           });
         }
-        m.action = { kind: 'cast', t: 0, dur: 0.25, lock: true };
+        m.action = { kind: 'cast', t: 0, dur: 0.25, lock: true, mv, pose: 'throw' };
         Sfx.move(mv, 'cast');
         break;
       }
@@ -448,7 +448,7 @@ class Battle {
         this.text(m.x, m.y - m.h - 6, label, fx[1], m.y);
         this.fxBuff(m, mv);
         this.burst(m.x, m.cy, fx, 8, 60, -40);
-        m.action = { kind: 'cast', t: 0, dur: 0.35, lock: true };
+        m.action = { kind: 'cast', t: 0, dur: 0.35, lock: true, mv, pose: 'proud' };
         Sfx.move(mv, 'cast');
         break;
       }
@@ -459,7 +459,8 @@ class Battle {
         this.number(m, real, null, '#b6ff9a', '#4fae2e', '+');
         this.fxHeal(m, mv);
         this.burst(m.x, m.cy, ['#4fae2e', '#b6ff9a', '#ffffff'], 8, 50, -50);
-        m.action = { kind: 'cast', t: 0, dur: 0.45, lock: true };
+        m.action = { kind: 'cast', t: 0, dur: 0.45, lock: true, mv, pose: 'heal' };
+        animHeal(m, mv);   // its pose outlasts the move (Blanket Nap sleeps under the blanket)
         Sfx.move(mv, 'cast');
         break;
       }

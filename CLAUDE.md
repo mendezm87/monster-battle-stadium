@@ -93,4 +93,4 @@ Galewing, Pixibelle and Drakorn hover over their shadow and flap; Wispurr floats
 
 ## Rigged animation (r10, from Monster Rush r38)
 
-The shared `js/sprites.js` now animates rigged monsters with real frames (`RIGGED`, `RIG_FRAMES`, `part()`, `monAnim`); only Smugshi so far. `drawMon` uses `monAnim(m, phase, flying)`'s `views` and draws them through `posed`. Unrigged monsters just hop.
+The shared `js/sprites.js` now animates rigged monsters with real frames (`RIGGED`, `RIG_FRAMES`, `part()`, `monAnim`); only Smugshi so far. `drawMon` uses `monAnim(m, phase, flying)`'s `views` and draws them through `posed`. Unrigged monsters just hop. r12: move poses, lying-down faint and body-type templates (Smugshi, Brawlix, Wispurr rigged); cast actions carry `mv` and `pose`, sent to online guests as `po`.
