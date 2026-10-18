@@ -31,13 +31,26 @@ Real-time, top-down HD pixel-art monster battle game, inspired by a "Pokemon Bat
 - **Online play uses the owner's Metered.ca TURN relay** (free plan, app `monsterbattle`) when a direct link fails. PeerJS's own relay is dead, and even two devices on the same home Wi-Fi often can't link directly (browsers hide local addresses and many routers don't loop traffic back), so the relay matters. `TURN_URL` in `js/net.js` holds the credentials URL; its `apiKey` is Metered's front-end key (it can only fetch relay logins), so it's fine in this public repo. The free plan has a monthly data cap; a relayed match uses roughly 45 MB an hour.
 - **Local 2-player** (no network): a shared keyboard, a tabletop touch screen with player 2's controls rotated 180° along the top, or one gamepad per player. Player 2 is the top (`enemy`) side; `Battle.ai` is null in 2P. In tabletop mode the HUD panels hide and `Battle.drawBars` draws HP bars over each monster.
 
+## Shared with Monster Rush (ported 2026-10-17)
+
+The owner's roguelike, **Monster Rush** (`mendezm87/monster-rush`), started as a copy of this game. **The owner's rule: improvements made there that make sense here get ported, especially visuals.** Its CLAUDE.md has the full story of each feature. Ported so far (r2):
+
+- **Monster art**: `js/sprites.js` is Rush's file as-is. Every monster has `front`, `side`, `back` and the two diagonals `fside`/`bside` (8-way turning, `viewFor()`/`isSideView()`); `Mon.look(dx, dy)` sets `m.view` and `m.face`. Player monsters start on their back view (facing the enemy). Toshi (Smugshi) is redrawn from the owner's photos. `ALL_MONS` (data.js) lists the monsters that have art.
+- **Attack art**: `js/fx.js` is Rush's file as-is (chunky outlined pixel effects in their own layer, `FXLayer`, one pixel = one sprite pixel; a look per type; signature looks via a move's `fx` tag: wheel, bubble, mud, claw, roll, slash, stare, pin, breeze; heals act out their names). battle.js calls `fxImpact`, `fxBlast`, `fxBuff`, `fxHeal` and adds dash streaks; it has `mixInto`, `foes(m)` and `mons` for fx.js. **The online guest's turned-round view (`flip`) still draws the old simple effects** (`drawBeamFlat`, `drawProjectileFlat`, `drawZoneFallsFlat`, `drawParticlesFlat`), because fx.js draws in world space and the flipped view needs things kept upright about their ground spot; the host packs the new particle kinds as their nearest simple shape (`packParticle` in net.js). Porting the new art to the guest view is still to do.
+- **Sounds**: `js/audio.js` is Rush's file as-is: every non-beam move has a sound (`Sfx.move(mv, phase)`, phases cast / release / land / hit; type flavours; signature sounds; fire roars, dark is audible on phones, Thunder cracks and rolls), plus Rush's music engine with several songs; each stage has its song (`STAGE_SONGS` in arena.js: summit = Summit Wind, crater = Magma March, meadow = Rush). Online: the host records `Sfx.move` calls (`rec.mv`) and the guest replays them.
+- **Crisp scaling**: `RES` (arena.js) is canvas pixels per world unit, always even; `fitScreen` in main.js picks it from the screen's real pixels; draw with `setTransform(RES, ...)`, never assume a 2x canvas.
+- **Bundled font** (`fonts/`, `css/fonts.css`, SIL OFL) and `serve.py` (a no-cache local server).
+
+Not ported (Rush-only or gameplay that would need its own balance and network work here): rooms, relics, the bot test page, settings/saves, lighting, and Rush's move changes (Blizzard cone, Dark Pulse ripple, Close Combat flurry, Gust, Tornado, Wool Tackle and the new movesets). Ask the owner before porting gameplay changes.
+
 ## Code map
 
 | File | Purpose |
 | --- | --- |
 | `js/data.js` | `TYPES` (colours and FX palettes), `CHART`, `MOVES`, `ITEMS`, `ROSTER`, `DIFFICULTY` |
 | `js/pixel.js` | `PixGrid` (shaded ellipses and polygons, auto-outline), bitmap digits, trainer sprites |
-| `js/sprites.js` | `MONSTER_ART[id](grid)`, the procedural monster designs (32px, or 44px for size `L`) |
+| `js/sprites.js` | `MONSTER_ART[id](grid, view)` and `MONSTER_ART_DIAG`: the monster designs (32px, or 44px for size `L`) in 5 views (shared with Monster Rush) |
+| `js/fx.js` | Attack art (shared with Monster Rush): `FXLayer`, `FXD` helpers, `FX_PARTS`, the drawing of shots, beams, blasts and effects |
 | `js/arena.js` | Stage generation; `W`/`H` = 288×512 world, `FIELD` bounds |
 | `js/battle.js` | `Mon`, `AI`, `Battle`: simulation, effects, rendering (canvas is 2× world; sprites drawn at `SPR_SCALE` 1.5) |
 | `js/audio.js` | `Sfx`: synthesized SFX, `beamCharge`/`beamFire` + per-type layers, `Sfx.music` sequencer |
@@ -53,7 +66,7 @@ There is no test suite. Check changes in headless Chromium through Playwright (i
 
 - **Always test with the sound off.** Right after every page load, run `if (!Sfx.muted) toggleMute()` (mute resets on reload). Offline audio renders for level checks are silent and fine.
 
-- Serve the repo with `python3 -m http.server 8137`. `window.__MBS` exposes app state (`__MBS.battle`).
+- Serve the repo with `python serve.py 8138` (a no-cache server; 8137 is Monster Rush's). `window.__MBS` exposes app state (`__MBS.battle`).
 - To bot-play a whole battle, override `Input.dir(p)`/`Input.moves(p)` so they drive an `AI` on the player's side (and on player 2's side in 2P). Stepping `battle.update(1/60)` in a loop runs a battle in well under a second; stub `UI.pickNext` to auto-pick. Watch for page errors and check battle length (a 6v6 runs about 50–140 s with hard bots).
 - Balance check: a 1v1 round robin of every monster with hard bots on both sides. After adding the 6 new monsters, every one of them won 40–66% of its 1v1s. The original 12 range from Shadefang at ~21% to Mindra at ~71%, so hard bots favour ranged kits.
 - Online: open two tabs, host in one and join with its code in the other (needs internet for the PeerJS server). Hidden tabs throttle `requestAnimationFrame`, so drive each tab with `setInterval(() => frame(performance.now()), 16)`; the host auto-pauses when its tab is hidden. Setting `window.__netStats = {}` on the host records total and largest message sizes.

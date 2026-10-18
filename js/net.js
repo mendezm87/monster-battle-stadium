@@ -178,8 +178,8 @@ const Net = (() => {
   // ---------------------------------------------------------- host side
   let battle = null, snapT = 0, pendingPick = null;
   const remote = { x: 0, y: 0, m: 0 };
-  const rec = { snd: [], beam: [], ui: [], dec: [] };
-  const clearRec = () => { rec.snd = []; rec.beam = []; rec.ui = []; rec.dec = []; };
+  const rec = { snd: [], beam: [], ui: [], dec: [], mv: [] };
+  const clearRec = () => { rec.snd = []; rec.beam = []; rec.ui = []; rec.dec = []; rec.mv = []; };
   const recording = () => role === 'host' && battle && !battle.puppet;
 
   // Sounds made by the simulation are replayed on the guest. Result jingles are
@@ -188,6 +188,8 @@ const Net = (() => {
   Sfx.play = name => { sfxPlay.call(Sfx, name); if (recording() && name !== 'win' && name !== 'lose') rec.snd.push(name); };
   Sfx.beamCharge = dur => { sfxCharge.call(Sfx, dur); if (recording()) rec.beam.push([dur]); };
   Sfx.beamFire = (dur, type) => { sfxFire.call(Sfx, dur, type); if (recording()) rec.beam.push([dur, type]); };
+  const sfxMove = Sfx.move;   // attack sounds (audio.js): sent as [move id, phase]
+  Sfx.move = (mv, phase) => { sfxMove.call(Sfx, mv, phase); if (recording() && mv) rec.mv.push([mv.id, phase]); };
 
   // What the host's battle tells the screen is also recorded for the guest.
   const hostUI = Object.assign(Object.create(UI), {
@@ -239,11 +241,11 @@ const Net = (() => {
   function full(m) {
     const a = m.action;
     return {
-      x: r1(m.x), y: r1(m.y), vx: r1(m.vx), vy: r1(m.vy), kx: r1(m.kx), ky: r1(m.ky), f: m.face, w: r1(m.walkT),
+      x: r1(m.x), y: r1(m.y), vx: r1(m.vx), vy: r1(m.vy), kx: r1(m.kx), ky: r1(m.ky), f: m.face, vw: m.view, w: r1(m.walkT),
       fl: +m.flash.toFixed(2), v: m.visible ? 1 : 0, ft: +m.fadeT.toFixed(2), st: +m.stunT.toFixed(2),
       cd: m.cd.map(r1), b: m.buffs.map(b => [b.stat, b.mul, r1(b.t)]),
       a: a ? { k: a.kind, t: +a.t.toFixed(3), d: a.dir, p: a.phase, m: a.mv ? a.mv.id : 0, dn: a.done ? 1 : 0, du: a.dur } : 0,
-      g: m.ghosts.map(g => [r1(g.x), r1(g.y), g.face, +g.t.toFixed(2), g.color]),
+      g: m.ghosts.map(g => [r1(g.x), r1(g.y), g.face, +g.t.toFixed(2), g.color, g.view]),
     };
   }
   // Particles are cosmetic and numerous, so they travel as short arrays and only
@@ -258,7 +260,11 @@ const Net = (() => {
       case 'ring': return ['r', r1(p.x), r1(p.y), p.r0, r1(p.r1), r2(p.life), p.max, p.color, p.w, ga(p)];
       case 'line': return ['l', r1(p.x), r1(p.y), r1(p.x2), r1(p.y2), r2(p.life), p.max, p.color, ga(p), r1(p.k2 ?? 19)];
       case 'bolt': return ['b', r1(p.x), r1(p.y), r2(p.life), p.max, p.color, r2(p.seed)];
+      // the newer effects (fx.js) travel as their nearest simple shape: the guest's view draws the simpler effects
+      case 'wave': return ['r', r1(p.x), r1(p.y), p.r0, r1(p.r1), r2(p.life), p.max, p.color, p.w, ga(p)];
+      case 'impact': return ['q', r1(p.x), r1(p.y), 0, 0, r2(p.life), p.max, r1(p.size * 0.5), p.color, 0, ga(p)];
     }
+    if (p.vx !== undefined && p.life <= p.max) return ['q', r1(p.x), r1(p.y), r1(p.vx), r1(p.vy), r2(p.life), p.max, r1(Math.min(4, p.size || 2)), p.color || (p.fx && p.fx[1]) || '#ffffff', p.drag || 0, ga(p)];
     return null;
   }
   function unpackParticle(a) {
@@ -319,11 +325,11 @@ const Net = (() => {
   }
 
   function applyMon(m, d) {
-    Object.assign(m, { x: d.x, y: d.y, vx: d.vx, vy: d.vy, kx: d.kx, ky: d.ky, face: d.f, walkT: d.w,
+    Object.assign(m, { x: d.x, y: d.y, vx: d.vx, vy: d.vy, kx: d.kx, ky: d.ky, face: d.f, view: d.vw || 'front', walkT: d.w,
       flash: d.fl, visible: !!d.v, fadeT: d.ft, stunT: d.st, cd: d.cd });
     m.buffs = d.b.map(([stat, mul, t]) => ({ stat, mul, t }));
     m.action = d.a ? { kind: d.a.k, t: d.a.t, dir: d.a.d, phase: d.a.p, mv: d.a.m ? MOVES[d.a.m] : null, done: !!d.a.dn, dur: d.a.du, lock: true } : null;
-    m.ghosts = d.g.map(([x, y, face, t, color]) => ({ x, y, face, t, color }));
+    m.ghosts = d.g.map(([x, y, face, t, color, view]) => ({ x, y, face, t, color, view }));
   }
   function applyLite(m, [hp, fainted, status]) { m.hp = hp; m.fainted = !!fainted; m.status = status || null; }
 
@@ -344,6 +350,7 @@ const Net = (() => {
     const ev = s.ev;
     ev.snd.forEach(n => Sfx.play(n));
     ev.beam.forEach(([dur, type]) => (type ? Sfx.beamFire(dur, type) : Sfx.beamCharge(dur)));
+    (ev.mv || []).forEach(([id, ph]) => Sfx.move(MOVES[id], ph));
     ev.dec.forEach(([x, y, r]) => b.decalAt(x, y, r));
     for (const [k, a, n, ty] of ev.ui) {
       if (k === 'c') UI.callout(a, n, ty);

@@ -1,6 +1,11 @@
 // Stage generation: a pixel-noise ground texture, field markings and edge rocks.
 
 const W = 288, H = 512;
+// Canvas pixels per world unit. Always even, so a sprite pixel (1.5 world units) is a whole number
+// of canvas pixels; main.js picks it to match the screen (fitScreen).
+let RES = 2;
+// each stage's battle song (Sfx.music.SONGS in audio.js)
+const STAGE_SONGS = { summit: 'summit', crater: 'magma', meadow: 'rush' };
 const FIELD = { x0: 14, y0: 120, x1: 274, y1: 470 };
 const TRAINER_POS = { player: { x: 144, y: 492 }, enemy: { x: 144, y: 104 } };
 const SPAWN_POS = { player: { x: 144, y: 400 }, enemy: { x: 144, y: 200 } };

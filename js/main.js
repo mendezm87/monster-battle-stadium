@@ -2,7 +2,7 @@
 
 // Shown on the title screen so players can tell whether their browser has the latest
 // build (GitHub Pages lets browsers cache files for up to 10 minutes). Bump on every release.
-const VERSION = '2026.10.17-r1';
+const VERSION = '2026.10.17-r2';
 
 const App = {
   mode: '1p',       // '1p' vs the CPU, or '2p' local
@@ -18,6 +18,17 @@ const App = {
 
 const canvas = $('#view');
 const ctx = canvas.getContext('2d');
+
+// Crisp at any screen size: draw at the smallest even RES at least as big as the real screen
+// pixels, and let the browser smoothly shrink it to fit. Capped at 6 so big screens stay fast.
+function fitScreen() {
+  const px = $('#game').getBoundingClientRect().width * (window.devicePixelRatio || 1);
+  const res = Math.min(6, Math.max(2, Math.ceil(px / W / 2 - 0.02) * 2));
+  if (res !== RES) { RES = res; canvas.width = W * RES; canvas.height = H * RES; }
+}
+fitScreen();
+window.addEventListener('resize', fitScreen);
+if (window.ResizeObserver) new ResizeObserver(fitScreen).observe($('#game'));
 buildSprites();
 
 // ---------- menu backdrop: the stage with weather and a few idle monsters ----------
@@ -28,7 +39,7 @@ const Backdrop = {
     this.mons = ['slumbear', 'sparkit', 'smugshi', 'cinderox'].map((id, i) => ({ id, x: 44 + i * 66, y: 440 + (i % 2) * 18, face: i % 2 ? -1 : 1 }));
   },
   render(dt, t) {
-    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.setTransform(RES, 0, 0, RES, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.stage.canvas, 0, 0);
     for (const m of this.mons) {
@@ -297,11 +308,11 @@ function startBattle(net = null) {
   UI.hudCache = {};
   UI.closeSwap();
   Input.reset();
-  Sfx.init(); Sfx.resume(); Sfx.music.start();
   App.paused = false;
   let opts = { playerTeam: App.team.slice(), enemyTeam: App.enemyTeam.slice(), difficulty: App.diff, stage, ui: UI,
     twoP: UI.twoP, overheadBars: UI.tabletop };
   if (net) opts = { ...opts, ...Net.battleOptions(net) };
+  Sfx.init(); Sfx.resume(); Sfx.music.start(STAGE_SONGS[opts.stage] || 'rush');
   App.battle = new Battle(opts);
   if (net) Net.attach(App.battle);
   UI.buildMoveButtons(UI.own(App.battle).mon, 0);

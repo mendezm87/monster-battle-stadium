@@ -9,6 +9,14 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 let _uid = 1;
 
+// Copies a class body's methods onto another class, so one big class can live in
+// several files: fx.js adds the attack art to Battle with mixInto(Battle, class {...}).
+function mixInto(target, src) {
+  for (const k of Object.getOwnPropertyNames(src.prototype)) {
+    if (k !== 'constructor') Object.defineProperty(target.prototype, k, Object.getOwnPropertyDescriptor(src.prototype, k));
+  }
+}
+
 const BALL_IMG = gridFromMap([
   '.kkkk.',
   'krrrrk',
@@ -19,10 +27,10 @@ const BALL_IMG = gridFromMap([
 
 // Lazily tinted sprite variants (freeze / burn / paralysis / buff glow).
 const _tint = {};
-function tinted(id, color) {
-  const key = id + color;
+function tinted(id, color, view = 'front') {
+  const key = id + color + view;
   if (_tint[key]) return _tint[key];
-  const src = SPRITES[id].img;
+  const src = SPRITES[id].views[view];
   const cv = document.createElement('canvas');
   cv.width = src.width; cv.height = src.height;
   const c = cv.getContext('2d');
@@ -51,7 +59,7 @@ class Mon {
   }
   reset() {
     this.x = 0; this.y = 0; this.vx = 0; this.vy = 0; this.kx = 0; this.ky = 0;
-    this.face = 1; this.walkT = 0;
+    this.face = 1; this.walkT = 0; this.view = 'front';
     this.cd = [0, 0, 0, 0]; this.gcd = 0;
     this.slowT = 0;          // status (PAR/BRN/FRZ) deliberately survives a swap
     this.buffs = []; this.action = null; this.stunT = 0;
@@ -59,6 +67,13 @@ class Mon {
     this.fadeT = 0;
   }
   get cy() { return this.y - this.h * 0.4; }
+  // Turn to look along (dx, dy): 8 directions (front, the diagonals, side, back; flipped by face).
+  look(dx, dy) {
+    const v = viewFor(dx, dy, this.view, SPRITES[this.id].diag);
+    if (!v) return;
+    this.view = v;
+    if (isSideView(v) && Math.abs(dx) > 0.001) this.face = Math.sign(dx);
+  }
   buffMul(stat) { return this.buffs.reduce((m, b) => (b.stat === stat ? m * b.mul : m), 1); }
   atk() { return this.def.atk * (this.item.atk || 1) * this.buffMul('atk') * (this.status === 'brn' ? 0.75 : 1); }
   defense() { return this.def.def * (this.item.def || 1) * this.buffMul('def'); }
@@ -227,6 +242,8 @@ class Battle {
   get P() { return this.p[this.pi]; }
   get E() { return this.e[this.ei]; }
   foe(m) { return m.side === 'player' ? this.E : this.P; }
+  foes(m) { const f = this.foe(m); return f && f.visible && !f.fainted ? [f] : []; }
+  get mons() { return [this.P, this.E]; }
 
   // ---------------------------------------------------------- view (perspective)
   // When flipped, the arena is turned 180° about the field centre but sprites and
@@ -246,6 +263,7 @@ class Battle {
     const pos = at || SPAWN_POS[side];
     m.x = clamp(pos.x, FIELD.x0 + m.r, FIELD.x1 - m.r); m.y = clamp(pos.y, FIELD.y0 + m.r, FIELD.y1 - 2);
     m.face = side === 'player' ? 1 : -1;
+    m.view = side === 'player' ? 'back' : 'front';   // facing the other side
     if (side === 'enemy' && this.ai) this.ai.reset();
     this.balls.push({ side, from: TRAINER_POS[side], to: { x: m.x, y: m.y - 6 }, t: 0, dur: 0.55 });
     this.ui.onSendOut(side, m);
@@ -368,6 +386,7 @@ class Battle {
     this.ui.callout(m.side, mv.name, mv.type);
     const dir = this.aim(m, foe, mv);
     if (Math.abs(Math.cos(dir)) > 0.2) m.face = Math.cos(dir) > 0 ? 1 : -1;
+    m.look(Math.cos(dir), Math.sin(dir));
     const fx = TYPES[mv.type].fx;
 
     switch (mv.kind) {
@@ -384,7 +403,7 @@ class Battle {
           });
         }
         m.action = { kind: 'cast', t: 0, dur: 0.18, lock: true };
-        Sfx.play(mv.boomerang ? 'whoosh' : 'shoot');
+        Sfx.move(mv, 'cast');
         break;
       }
       case 'beam':
@@ -393,15 +412,15 @@ class Battle {
         break;
       case 'dash':
         m.action = { kind: 'dash', t: 0, mv, dir, lock: true, hit: false, id: _uid++ };
-        Sfx.play('dash');
+        Sfx.move(mv, 'cast');
         break;
       case 'vortex':
         m.action = { kind: 'vortex', t: 0, mv, dir, lock: true, tick: 0, id: _uid++ };
-        Sfx.play('vortex');
+        Sfx.move(mv, 'cast');
         break;
       case 'burst':
         m.action = { kind: 'burst', t: 0, mv, dir, lock: true, done: false };
-        Sfx.play(mv.sfx || 'charge');   // a move can bring its own wind-up sound
+        Sfx.move(mv, 'cast');   // see KIND_SFX / MOVE_SFX in audio.js
         break;
       case 'zone': {
         const n = mv.count || 1;
@@ -415,7 +434,7 @@ class Battle {
           });
         }
         m.action = { kind: 'cast', t: 0, dur: 0.25, lock: true };
-        Sfx.play('shoot');
+        Sfx.move(mv, 'cast');
         break;
       }
       case 'buff': {
@@ -425,9 +444,10 @@ class Battle {
         }
         const label = Object.keys(mv.buff).map(s => s.toUpperCase()).join(' & ') + ' UP!';
         this.text(m.x, m.y - m.h - 6, label, fx[1], m.y);
-        this.burst(m.x, m.cy, fx, 18, 60, -40);
+        this.fxBuff(m, mv);
+        this.burst(m.x, m.cy, fx, 8, 60, -40);
         m.action = { kind: 'cast', t: 0, dur: 0.35, lock: true };
-        Sfx.play('buff');
+        Sfx.move(mv, 'cast');
         break;
       }
       case 'heal': {
@@ -435,9 +455,10 @@ class Battle {
         const real = Math.round(Math.min(amt, m.maxHp - m.hp));
         m.hp = Math.min(m.maxHp, m.hp + real);
         this.number(m, real, null, '#b6ff9a', '#4fae2e', '+');
-        this.burst(m.x, m.cy, ['#4fae2e', '#b6ff9a', '#ffffff'], 22, 50, -50);
+        this.fxHeal(m, mv);
+        this.burst(m.x, m.cy, ['#4fae2e', '#b6ff9a', '#ffffff'], 8, 50, -50);
         m.action = { kind: 'cast', t: 0, dur: 0.45, lock: true };
-        Sfx.play('heal');
+        Sfx.move(mv, 'cast');
         break;
       }
     }
@@ -462,15 +483,15 @@ class Battle {
     const force = opts.force ?? (mult < 1 ? 22 : Math.min(260, 60 + dmg * 0.45));
     tgt.kx += Math.cos(kb) * force; tgt.ky += Math.sin(kb) * force;
 
-    const fx = TYPES[mv.type].fx;
-    this.burst(tgt.x, tgt.cy, fx, mult < 1 ? 4 : Math.min(30, 8 + dmg / 15), 110);
-    if (mult >= 1 || fresh) this.sparks(tgt.x, tgt.cy, mult < 1 ? 3 : 8);
+    this.fxImpact(tgt, mv, dmg, eff, mult, src);
+    if (mult >= 1 || fresh) this.sparks(tgt.x, tgt.cy, mult < 1 ? 2 : 6);
     if (fresh) {
       if (eff >= 2) this.text(tgt.x, tgt.y - tgt.h - 12, 'SUPER EFFECTIVE!', '#ffe066', tgt.y);
       else if (eff < 1) this.text(tgt.x, tgt.y - tgt.h - 12, eff <= 0.25 ? 'BARELY AFFECTS...' : 'NOT VERY EFFECTIVE', '#c8c8d8', tgt.y);
       if (crit) this.text(tgt.x, tgt.y - tgt.h - 22, 'CRITICAL HIT!', '#ff7a5a', tgt.y);
     }
     Sfx.play(dmg > 200 ? 'bigHit' : 'hit');
+    if (mult >= 1) Sfx.move(mv, 'hit');
     this.addShake(mult < 1 ? 1.2 : Math.min(6, 1 + dmg / 80));
     if (mult >= 1 && dmg > 150) this.hitstop = Math.min(0.09, 0.03 + dmg / 6000);
 
@@ -621,9 +642,10 @@ class Battle {
     m.y = clamp(m.y + (m.vy + m.ky) * dt, FIELD.y0 + m.r, FIELD.y1 - 2);
     const sp = Math.hypot(m.vx, m.vy);
     m.walkT += sp * dt;
-    if (!lock) {
-      if (Math.abs(m.vx) > 12) m.face = Math.sign(m.vx);
-      else if (sp < 12 && Math.abs(foe.x - m.x) > 4) m.face = Math.sign(foe.x - m.x);
+    if (a && a.dir !== undefined && a.kind !== 'cast') m.look(Math.cos(a.dir), Math.sin(a.dir));
+    else if (!lock) {
+      if (sp > 12) m.look(m.vx, m.vy);
+      else if (foe && dist(foe, m) > 6) m.look(foe.x - m.x, foe.y - m.y);
     }
   }
 
@@ -686,8 +708,9 @@ class Battle {
         }
         if (a.t <= 0.1) { if (a.t < 0.03) a.dir = this.aim(m, foe, mv); break; }
         m.ghostT -= dt;
-        if (m.ghostT <= 0) { m.ghostT = 0.03; m.ghosts.push({ x: m.x, y: m.y, face: m.face, t: 0.22, color: fx[1] }); }
+        if (m.ghostT <= 0) { m.ghostT = 0.03; m.ghosts.push({ x: m.x, y: m.y, face: m.face, view: m.view, t: 0.22, color: fx[1] }); }
         if (Math.random() < 0.7) this.particles.push({ x: m.x + rand(-6, 6), y: m.cy + rand(-6, 6), vx: -m.vx * 0.2, vy: -m.vy * 0.2, life: 0.3, max: 0.3, size: 2, color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
+        if (Math.random() < 0.6) this.particles.push({ kind: 'streak', x: m.x + rand(-9, 9), y: m.cy + rand(-9, 9), sx: m.vx, sy: m.vy, color: fx[2], life: 0.16, max: 0.16 });
         if (!a.hit && Math.hypot(m.x - foe.x, m.cy - foe.cy) < m.r + foe.r + 4) {
           a.hit = true;
           if (mv.hits > 1) {   // a combo: stop here and start hitting
@@ -716,12 +739,10 @@ class Battle {
         const mv = a.mv;
         if (!a.done && a.t >= mv.delay) {
           a.done = true;
-          this.particles.push({ x: m.x, y: m.y - 2, r0: 6, r1: mv.r, life: 0.35, max: 0.35, color: fx[2], kind: 'ring', w: 3 });
-          this.particles.push({ x: m.x, y: m.y - 2, r0: 4, r1: mv.r * 0.8, life: 0.45, max: 0.45, color: fx[1], kind: 'ring', w: 2 });
-          this.burst(m.x, m.y - 4, fx, 30, mv.r * 2.6, 0, 4);
+          this.fxBlast(m.x, m.y, mv.r, mv);
           this.decalAt(m.x, m.y, mv.r * 0.6);
           this.addShake(6);
-          Sfx.play('boom');
+          Sfx.move(mv, 'release');
           if (Math.hypot(foe.x - m.x, foe.y - m.y) < mv.r + foe.r * 0.6) this.hit(m, foe, mv, 1);
           if (m.fainted) return;
         }
@@ -804,10 +825,9 @@ class Battle {
         // a boomerang cuts through and can hit again on the way back
         if (p.mv.boomerang) p.hitCd = 0.35; else p.life = -1;
         if (p.mv.explode) {
-          this.particles.push({ x: p.x, y: p.y, g: p.y + p.k, r0: 4, r1: p.mv.explode, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
-          this.burst(p.x, p.y, fx, 26, 140);
+          this.fxBlast(p.x, p.y, p.mv.explode, p.mv);
           this.decalAt(foe.x, foe.y, p.mv.explode * 0.6);
-          Sfx.play('boom');
+          Sfx.move(p.mv, 'land');
         }
         this.hit(p.owner, foe, p.mv, 1, { kb: Math.atan2(p.vy, p.vx) });
         if (this.state !== 'fight') return;
@@ -824,9 +844,9 @@ class Battle {
       if (!z.done && z.t >= z.delay) {
         z.done = true; z.tick = 0.5;   // a pool's first tick comes after the landing hit
         const fx = TYPES[z.mv.type].fx;
-        if (z.mv.fx === 'bolt') { this.particles.push({ x: z.x, y: z.y, life: 0.25, max: 0.25, kind: 'bolt', color: fx[1], seed: Math.random() }); Sfx.play('zap'); }
-        else Sfx.play('boom');
-        this.particles.push({ x: z.x, y: z.y, r0: 3, r1: z.r * 1.2, life: 0.3, max: 0.3, color: fx[2], kind: 'ring', w: 3 });
+        if (z.mv.fx === 'bolt') this.particles.push({ x: z.x, y: z.y, life: 0.25, max: 0.25, kind: 'bolt', color: fx[1], seed: Math.random() });
+        Sfx.move(z.mv, 'land');
+        this.fxBlast(z.x, z.y, z.r * 1.2, z.mv);
         this.burst(z.x, z.y - 4, fx, 22, z.r * 4, 0, 4);
         this.decalAt(z.x, z.y, z.r * 0.7);
         this.addShake(4);
@@ -945,7 +965,7 @@ class Battle {
 
   // ---------------------------------------------------------- render
   render(ctx) {
-    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    ctx.setTransform(RES, 0, 0, RES, 0, 0);
     ctx.imageSmoothingEnabled = false;
     const shx = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
     const shy = this.shake > 0.3 ? Math.round(rand(-1, 1) * this.shake * 2) / 2 : 0;
@@ -966,10 +986,17 @@ class Battle {
     for (const m of [this.P, this.E]) if (m.visible) actors.push({ y: this.sy(m.y), draw: () => this.drawMon(ctx, m) });
     actors.sort((a, b) => a.y - b.y).forEach(a => a.draw());
 
-    for (const m of [this.P, this.E]) if (m.action && m.action.kind === 'beam' && m.visible) this.drawBeam(ctx, m, m.action);
-    for (const p of this.projectiles) this.drawProjectile(ctx, p);
-    this.drawZoneFalls(ctx);
-    this.drawParticles(ctx);
+    if (!this.flip) {
+      // attacks and effects: chunky pixel art in their own layer (see fx.js)
+      this.drawAttacks(FXLayer.begin(-shx, -shy));
+      FXLayer.end(ctx);
+    } else {
+      // the online guest's turned-round view still uses the simpler effects (fx.js draws in world space)
+      for (const m of [this.P, this.E]) if (m.action && m.action.kind === 'beam' && m.visible) this.drawBeamFlat(ctx, m, m.action);
+      for (const p of this.projectiles) this.drawProjectileFlat(ctx, p);
+      this.drawZoneFallsFlat(ctx);
+      this.drawParticlesFlat(ctx);
+    }
     for (const b of this.balls) {
       const k = Math.min(1, b.t / b.dur);
       const fx = this.sx(b.from.x), fy = this.sy(b.from.y), tx = this.sx(b.to.x), ty = this.sy(b.to.y, 6);
@@ -1014,6 +1041,9 @@ class Battle {
     ctx.drawImage(img, Math.round(px - w / 2), Math.round(py - h + 1 + bob), w, h);
   }
 
+  // the view to draw: the guest's turned-round arena turns front into back (and the diagonals too)
+  viewOf(v = 'front') { return this.flip ? ({ front: 'back', back: 'front', fside: 'bside', bside: 'fside' }[v] || v) : v; }
+
   drawMon(ctx, m) {
     const sp = SPRITES[m.id], S = sp.size * SPR_SCALE;
     let alpha = 1, sink = 0;
@@ -1039,7 +1069,7 @@ class Battle {
     for (const g of m.ghosts) {
       ctx.globalAlpha = (g.t / 0.22) * 0.5 * alpha;
       ctx.save(); ctx.translate(Math.round(this.sx(g.x)), Math.round(this.sy(g.y))); if ((this.flip ? -g.face : g.face) < 0) ctx.scale(-1, 1);
-      ctx.drawImage(tinted(m.id, g.color), -S / 2, -S + 3, S, S); ctx.restore();
+      ctx.drawImage(tinted(m.id, g.color, this.viewOf(g.view)), -S / 2, -S + 3, S, S); ctx.restore();
     }
     ctx.globalAlpha = alpha;
 
@@ -1054,8 +1084,10 @@ class Battle {
     ctx.save();
     ctx.translate(X, Math.round(Y + bob + sink));
     if (face < 0) ctx.scale(-1, 1);
-    const dx = -S / 2, dy = -S + 3;
-    ctx.drawImage(sp.img, dx, dy, S, S);
+    const roll = m.action && m.action.kind === 'dash' && m.action.mv && m.action.mv.fx === 'roll' && m.action.t > 0.1;
+    if (roll) { ctx.translate(0, -S / 2 + 3); ctx.rotate((m.action.t - 0.1) * 22); ctx.translate(0, S / 2 - 3); }   // Rollout: tumble along
+    const dx = -S / 2, dy = -S + 3, view = this.viewOf(m.view);
+    ctx.drawImage(sp.views[view], dx, dy, S, S);
     let tint = null, ta = 0;
     if (m.flash > 0) { tint = '#ffffff'; ta = Math.min(1, m.flash * 8); }
     else if (m.fainted) { tint = '#ffffff'; ta = Math.min(0.8, m.fadeT); }
@@ -1064,7 +1096,7 @@ class Battle {
     else if (m.status === 'brn' && Math.sin(this.time * 10) > 0.5) { tint = '#ff5a2a'; ta = 0.35; }
     else if (m.status === 'psn' && Math.sin(this.time * 7) > 0.4) { tint = '#b04ae0'; ta = 0.4; }
     else if (m.stunT > 0 && Math.sin(this.time * 20) > 0) { tint = '#ffffff'; ta = 0.25; }
-    if (tint) { ctx.globalAlpha = ta * alpha; ctx.drawImage(tinted(m.id, tint), dx, dy, S, S); }
+    if (tint) { ctx.globalAlpha = ta * alpha; ctx.drawImage(tinted(m.id, tint, view), dx, dy, S, S); }
     ctx.restore();
     ctx.globalAlpha = 1;
 
@@ -1152,7 +1184,7 @@ class Battle {
     ctx.globalAlpha = 1;
   }
 
-  drawZoneFalls(ctx) {
+  drawZoneFallsFlat(ctx) {
     for (const z of this.zones) {
       if (z.done) continue;
       const left = z.delay - z.t;
@@ -1176,7 +1208,7 @@ class Battle {
     }
   }
 
-  drawBeam(ctx, m, a) {
+  drawBeamFlat(ctx, m, a) {
     const mv = a.mv, fx = TYPES[mv.type].fx;
     // the muzzle sits at body height, 6 units out along the aim
     const ox = this.sx(m.x + Math.cos(a.dir) * 6), oy = this.sy(m.cy + Math.sin(a.dir) * 6, m.y - m.cy);
@@ -1221,7 +1253,7 @@ class Battle {
     ctx.restore();
   }
 
-  drawProjectile(ctx, p) {
+  drawProjectileFlat(ctx, p) {
     const fx = TYPES[p.mv.type].fx, t = p.mv.type;
     const px = this.sx(p.x), py = this.sy(p.y, p.k ?? 19);
     if (p.mv.boomerang) {   // a spinning crescent blade
@@ -1262,7 +1294,7 @@ class Battle {
     ctx.beginPath(); ctx.arc(px, py, p.r * 0.6, 0, TAU); ctx.fill();
   }
 
-  drawParticles(ctx) {
+  drawParticlesFlat(ctx) {
     const dxs = this.flip ? -1 : 1;
     for (const p of this.particles) {
       const k = clamp(p.life / p.max, 0, 1);

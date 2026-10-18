@@ -26,9 +26,10 @@ html, body {
   box-shadow: 0 0 60px rgba(0,0,0,.8);
 }
 
+/* the canvas is drawn at about the screen's real resolution (see fitScreen in main.js), so a
+   smooth scale for the last few percent keeps every pixel the same size */
 #view {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  image-rendering: pixelated; image-rendering: crisp-edges;
 }
 
 .hidden { display: none !important; }
