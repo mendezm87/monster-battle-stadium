@@ -1099,7 +1099,7 @@ class Battle {
     const roll = m.action && m.action.kind === 'dash' && m.action.mv && m.action.mv.fx === 'roll' && m.action.t > 0.1;
     if (roll) { ctx.translate(0, -S / 2 + 3); ctx.rotate((m.action.t - 0.1) * 22); ctx.translate(0, S / 2 - 3); }   // Rollout: tumble along
     const view = this.viewOf(m.view);
-    const pic = posed((pose.views !== sp.views ? pose.views : flapping ? sp.flap : sp.views)[view], pose.sq, pose.sh), k = S / sp.size, pw = pic.width * k, ph = pic.height * k;
+    const pic = posed((flapping && pose.views.flapped ? pose.views.flapped : pose.views)[view], pose.sq, pose.sh), k = S / sp.size, pw = pic.width * k, ph = pic.height * k;
     const dx = -pw / 2, dy = 3 - ph;
     ctx.drawImage(pic, dx, dy, pw, ph);
     let tint = null, ta = 0;
