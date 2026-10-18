@@ -325,6 +325,9 @@ const Net = (() => {
   }
 
   function applyMon(m, d) {
+    // animation poses (sprites.js monPose): a fresh hit flash means it was hit, appearing means it popped out
+    if (d.fl > (m.flash || 0) + 0.05) m.hurtT = 0.22;
+    if (d.v && !m.visible) m.popT = 0.3;
     Object.assign(m, { x: d.x, y: d.y, vx: d.vx, vy: d.vy, kx: d.kx, ky: d.ky, face: d.f, view: d.vw || 'front', walkT: d.w,
       flash: d.fl, visible: !!d.v, fadeT: d.ft, stunT: d.st, cd: d.cd });
     m.buffs = d.b.map(([stat, mul, t]) => ({ stat, mul, t }));
@@ -385,6 +388,7 @@ const Net = (() => {
       if (m.action) m.action.t += dt;
       if (m.fainted) m.fadeT += dt;
       m.flash = Math.max(0, m.flash - dt);
+      m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.popT = Math.max(0, (m.popT || 0) - dt);
       m.ghosts.forEach(g => (g.t -= dt));
       m.ghosts = m.ghosts.filter(g => g.t > 0);
     }

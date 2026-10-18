@@ -478,7 +478,7 @@ class Battle {
     dmg = Math.max(1, Math.round(dmg));
     tgt.hp = Math.max(0, tgt.hp - dmg);
     src.dmgDealt += dmg;
-    tgt.flash = 0.12;
+    tgt.flash = 0.12; tgt.hurtT = 0.22;
 
     const fresh = this.number(tgt, dmg, opts.merge);
     const kb = opts.kb ?? Math.atan2(tgt.cy - src.cy, tgt.x - src.x);
@@ -580,6 +580,7 @@ class Battle {
       m.x = clamp(m.x + (m.vx + m.kx) * dt, FIELD.x0 + m.r, FIELD.x1 - m.r);
       m.y = clamp(m.y + (m.vy + m.ky) * dt, FIELD.y0 + m.r, FIELD.y1 - 2);
       m.flash = Math.max(0, m.flash - dt);
+      m.hurtT = Math.max(0, (m.hurtT || 0) - dt); m.popT = Math.max(0, (m.popT || 0) - dt);   // animation poses (monPose)
     }
   }
 
@@ -877,7 +878,7 @@ class Battle {
       if (b.t >= b.dur && !b.done) {
         b.done = true;
         const m = b.side === 'player' ? this.P : this.E;
-        m.visible = true; m.flash = 0.35; m.invuln = 0.4;
+        m.visible = true; m.flash = 0.35; m.invuln = 0.4; m.popT = 0.3;
         this.particles.push({ x: b.to.x, y: b.to.y, r0: 2, r1: 26, life: 0.35, max: 0.35, color: '#ffffff', kind: 'ring', w: 3 });
         this.burst(b.to.x, b.to.y, ['#ffffff', '#ffe9a0', '#ffffff'], 20, 90);
         Sfx.play('pop');
@@ -1052,16 +1053,17 @@ class Battle {
     if (m.fainted) { alpha = Math.max(0, 1 - m.fadeT / 1.1); sink = m.fadeT * 6; }
     if (alpha <= 0) return;
     const moving = Math.hypot(m.vx, m.vy) > 12;
-    let bob = moving ? -Math.round(Math.abs(Math.sin(m.walkT / 7 * Math.PI)) * 2) : (Math.sin(this.time * 3 + m.x) > 0.6 ? -1 : 0);
-    if (m.status === 'frz' || m.stunT > 0 || m.fainted) bob = 0;
     const X = Math.round(this.sx(m.x)), Y = Math.round(this.sy(m.y));
     const face = this.flip ? -m.face : m.face;
     // flying monsters hover above their shadow with a slow bob and flap their wings (they drop
     // to the ground when frozen or fainted). FLYERS and the flap frames live in sprites.js.
     const fly = sp.fly, grounded = m.status === 'frz' || m.fainted, phase = (m.x0 ?? (m.x0 = Math.random() * 10));
     const hover = fly && !grounded ? Math.round(fly.hover + Math.sin(this.time * 2.4 + phase) * 1.5) : 0;
-    if (hover) bob = 0;
     m.hover = hover;
+    // its pose (sprites.js monPose): walking hops, breathing, winding up, lunging, getting hit
+    const still = m.status === 'frz' || m.stunT > 0 || m.lift > 0.01;
+    const pose = still && !m.fainted ? { sq: 0, sh: 0, dy: 0 } : monPose(m, this.time, moving, phase, !!hover);
+    const bob = -pose.dy;
     const flapping = fly && sp.flap && !grounded && m.stunT <= 0 && Math.sin((this.time * fly.flap * (moving ? 1.3 : 1) + phase) * TAU) > 0;
     // your own monster gets the blue ring
     const mine = m.side === (this.flip ? 'enemy' : 'player');
@@ -1095,8 +1097,10 @@ class Battle {
     if (face < 0) ctx.scale(-1, 1);
     const roll = m.action && m.action.kind === 'dash' && m.action.mv && m.action.mv.fx === 'roll' && m.action.t > 0.1;
     if (roll) { ctx.translate(0, -S / 2 + 3); ctx.rotate((m.action.t - 0.1) * 22); ctx.translate(0, S / 2 - 3); }   // Rollout: tumble along
-    const dx = -S / 2, dy = -S + 3, view = this.viewOf(m.view);
-    ctx.drawImage((flapping ? sp.flap : sp.views)[view], dx, dy, S, S);
+    const view = this.viewOf(m.view);
+    const pic = posed((flapping ? sp.flap : sp.views)[view], pose.sq, pose.sh), k = S / sp.size, pw = pic.width * k, ph = pic.height * k;
+    const dx = -pw / 2, dy = 3 - ph;
+    ctx.drawImage(pic, dx, dy, pw, ph);
     let tint = null, ta = 0;
     if (m.flash > 0) { tint = '#ffffff'; ta = Math.min(1, m.flash * 8); }
     else if (m.fainted) { tint = '#ffffff'; ta = Math.min(0.8, m.fadeT); }
@@ -1105,7 +1109,7 @@ class Battle {
     else if (m.status === 'brn' && Math.sin(this.time * 10) > 0.5) { tint = '#ff5a2a'; ta = 0.35; }
     else if (m.status === 'psn' && Math.sin(this.time * 7) > 0.4) { tint = '#b04ae0'; ta = 0.4; }
     else if (m.stunT > 0 && Math.sin(this.time * 20) > 0) { tint = '#ffffff'; ta = 0.25; }
-    if (tint) { ctx.globalAlpha = ta * alpha; ctx.drawImage(tinted(m.id, tint, view), dx, dy, S, S); }
+    if (tint) { ctx.globalAlpha = ta * alpha; ctx.drawImage(tintOf(pic, tint), dx, dy, pw, ph); }
     ctx.restore();
     ctx.globalAlpha = 1;
 

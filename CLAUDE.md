@@ -86,3 +86,7 @@ There is no test suite. Check changes in headless Chromium through Playwright (i
 ## Flying monsters (r7, ported from Monster Rush r35)
 
 Galewing, Pixibelle and Drakorn hover over their shadow and flap; Wispurr floats. `FLYERS`, the wing helpers and the flap frames live in the shared `js/sprites.js`; `drawMon` in `js/battle.js` lifts them (`m.hover`), swaps in `SPRITES[id].flap`, and drops them when frozen or fainted. Looks only: hitboxes and attacks are unchanged.
+
+## Animation poses (r8, ported from Monster Rush r36)
+
+`posed`, `tintOf` and `monPose` in the shared `js/sprites.js` bend each monster into poses (bouncy walk, breathing, wind-ups, lunges, hit squish and recoil, pop-in, faint). `drawMon` in `js/battle.js` draws the posed canvas; `hit` sets `m.hurtT`, sending in sets `m.popT`. Online, the guest's `applyMon` (net.js) starts the hit pose when the hit flash appears and the pop when a monster becomes visible, since those timers aren't sent.
