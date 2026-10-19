@@ -172,6 +172,26 @@ const MOVES = {
   heavySigh:    { name: 'Heavy Sigh', type: 'normal', kind: 'burst', power: 210, cd: 5, r: 70, delay: 0.5, slow: 2.5 },
   blankStare:   { name: 'Blank Stare', type: 'dark', kind: 'beam', power: 300, cd: 5.5, charge: 0.6, dur: 0.6, width: 10, len: 290, fx: 'stare' },
   coffeeBreak:  { name: 'Coffee Break', type: 'normal', kind: 'buff', buff: { spd: 1.6, atk: 1.3 }, dur: 8, cd: 14 },
+  // from Monster Rush (r15): the new monsters' moves
+  spoutShot:    { name: 'Spout Shot', type: 'water', kind: 'projectile', power: 100, cd: 1.6, speed: 260, r: 4 },
+  cuffCannon:   { name: 'Cuff Cannon', type: 'water', kind: 'projectile', power: 150, cd: 2, speed: 270, r: 5 },
+  twinCannon:   { name: 'Twin Cannon', type: 'water', kind: 'projectile', power: 95, cd: 2.2, speed: 270, r: 5, count: 2, spread: 0.14 },
+  // the legends tier (evolved starters and Garrishell's altar forms)
+  zoomiesMax:   { name: 'Zoomies Max', type: 'normal', kind: 'dash', power: 110, cd: 2.6, speed: 440, dur: 0.38, hits: 3 },
+  shibaRoar:    { name: 'Shiba Roar', type: 'normal', kind: 'burst', power: 300, cd: 5, r: 78, delay: 0.35, status: ['par', 0.35], sfx: 'shibaScream' },
+  supremeSmug:  { name: 'Supreme Smug Beam', type: 'fairy', kind: 'beam', power: 350, cd: 5.5, charge: 0.45, dur: 0.7, width: 15, len: 310 },
+  blazeRush:    { name: 'Blaze Rush', type: 'fire', kind: 'dash', power: 290, cd: 3.5, speed: 330, dur: 0.45, status: ['brn', 0.35], fx: 'aura' },
+  infernoBeam:  { name: 'Inferno Beam', type: 'fire', kind: 'beam', power: 370, cd: 6, charge: 0.45, dur: 0.75, width: 14, len: 260, status: ['brn', 0.3] },
+  magmaQuake:   { name: 'Magma Quake', type: 'ground', kind: 'burst', power: 330, cd: 7, r: 80, delay: 0.55, slow: 1.5 },
+  tidalCannon:  { name: 'Tidal Cannon', type: 'water', kind: 'beam', power: 410, cd: 6.5, charge: 0.55, dur: 0.75, width: 15, len: 310 },
+  maelstrom:    { name: 'Maelstrom', type: 'water', kind: 'vortex', power: 460, cd: 6, r: 120, dur: 1.6, pull: 140 },
+  geyserVent:   { name: 'Geyser Vent', type: 'water', kind: 'burst', power: 260, cd: 4.5, r: 72, delay: 0.4, status: ['brn', 0.2] },
+  steamEruption:{ name: 'Steam Eruption', type: 'fire', kind: 'zone', power: 200, cd: 6.5, r: 28, delay: 0.85, count: 3, scatter: 50, linger: 2.4, tick: 0.25, status: ['brn', 0.3] },
+  magmaWave:    { name: 'Magma Wave', type: 'fire', kind: 'burst', power: 290, cd: 6.5, r: 96, delay: 0.5, status: ['brn', 0.3] },   // Rush's is a cone; the arena has no cones
+  railShot:     { name: 'Rail Shot', type: 'electric', kind: 'beam', power: 360, cd: 5, charge: 0.4, dur: 0.3, width: 7, len: 380, status: ['par', 0.25] },
+  lanceCharge:  { name: 'Lance Charge', type: 'electric', kind: 'dash', power: 230, cd: 3, speed: 470, dur: 0.32, status: ['par', 0.2] },
+  towerShield:  { name: 'Tower Shield', type: 'steel', kind: 'buff', buff: { def: 1.8 }, dur: 6, cd: 13 },
+  droneSwarm:   { name: 'Drone Swarm', type: 'steel', kind: 'projectile', power: 85, cd: 2.4, speed: 200, r: 4, count: 4, spread: 1.4, homing: 3 },
 };
 
 for (const k in MOVES) MOVES[k].id = k;   // lets moves be referenced by name over the network
@@ -232,11 +252,44 @@ const ROSTER = [
     moves: ['zoomies', 'shibaScream', 'smugBeam', 'blanketNap'] },
   { id: 'mondaze',   name: 'MONDAZE',   types: ['normal', 'dark'], hp: 1220, atk: 1.2, def: 1.15, spd: 70, size: 'M', item: 'powerBand',
     moves: ['deadlineDash', 'heavySigh', 'blankStare', 'coffeeBreak'] },
+  // from Monster Rush (r15); stats tuned here for 1v1 (hard-bot round robin: 56-63% each), Rush's differ
+  { id: 'voltergeist', name: 'VOLTERGEIST', types: ['electric', 'ghost'], hp: 860, atk: 1.0, def: 0.88, spd: 92, size: 'M', item: 'quickCharm',
+    moves: ['discharge', 'shadowBall', 'thunder', 'staticSiphon'] },
+  { id: 'coilizard', name: 'COILIZARD', types: ['electric', 'rock'], hp: 1080, atk: 1.04, def: 1.12, spd: 92, size: 'M', item: 'ironPlate',
+    moves: ['rollout', 'thunderbolt', 'rockSlide', 'thunder'] },
+  { id: 'bellpaca', name: 'BELLPACA', types: ['electric', 'normal'], hp: 1150, atk: 1.0, def: 1.12, spd: 80, size: 'M', item: 'snackPouch',
+    moves: ['bodySlam', 'staticSiphon', 'voltCannon', 'wish'] },
+  { id: 'smouldox', name: 'SMOULDOX', types: ['fire', 'rock'], hp: 1300, atk: 1.12, def: 1.2, spd: 64, size: 'M', item: 'emberStone',
+    moves: ['flameWheel', 'rockSlide', 'fireBlast', 'heavyStomp'] },
+  { id: 'shellmet', name: 'SHELLMET', types: ['water', 'steel'], hp: 950, atk: 0.95, def: 1.08, spd: 78, size: 'M', item: 'mysticDrop',
+    moves: ['spoutShot', 'aquaJet', 'ironSlam', 'ironDefense'] },
+  { id: 'bulwarden', name: 'BULWARDEN', types: ['water', 'steel'], hp: 1200, atk: 0.93, def: 1.12, spd: 68, size: 'M', item: 'mysticDrop',
+    moves: ['cuffCannon', 'hydroCannon', 'ironSlam', 'ironDefense'] },
+  { id: 'garrishell', name: 'GARRISHELL', types: ['water', 'steel'], hp: 1340, atk: 0.95, def: 1.0, spd: 58, size: 'L', item: 'mysticDrop',
+    moves: ['twinCannon', 'hydroCannon', 'ironSlam', 'ironDefense'] },
 ];
 
-// every monster that has art (the arena has no evolutions)
-const ALL_MONS = () => ROSTER;
-const ROSTER_BY_ID = Object.fromEntries(ROSTER.map(m => [m.id, m]));
+// The legends tier (team screen, "Legends" on): Monster Rush's evolved starters and Garrishell's
+// altar forms. Much stronger than the regular roster on purpose, so they're off by default.
+// `from` keeps their moves out of other monsters' move pools (movesets.js).
+const LEGENDS = [
+  { id: 'smugshogun', name: 'SMUGSHOGUN', types: ['normal', 'fairy'], hp: 1360, atk: 1.32, def: 1.1, spd: 114, size: 'L', item: 'snackPouch',
+    moves: ['zoomiesMax', 'shibaRoar', 'supremeSmug', 'blanketNap'], from: 'smugshi' },
+  { id: 'infernox', name: 'INFERNOX', types: ['fire', 'ground'], hp: 1400, atk: 1.26, def: 1.15, spd: 90, size: 'L', item: 'emberStone',
+    moves: ['blazeRush', 'infernoBeam', 'fireBlast', 'magmaQuake'], from: 'cinderox' },
+  { id: 'maelstrisk', name: 'MAELSTRISK', types: ['water', 'dragon'], hp: 1560, atk: 1.16, def: 1.22, spd: 88, size: 'L', item: 'mysticDrop',
+    moves: ['tidalCannon', 'bubbleBeam', 'dragonPulse', 'maelstrom'], from: 'tidalisk' },
+  { id: 'magmabastion', name: 'MAGMA BASTION', types: ['water', 'fire'], hp: 2300, atk: 1.32, def: 1.5, spd: 46, size: 'L', item: 'emberStone',
+    moves: ['geyserVent', 'steamEruption', 'magmaWave', 'ironDefense'], from: 'garrishell' },
+  { id: 'railwarden', name: 'RAILWARDEN', types: ['water', 'electric'], hp: 1550, atk: 1.42, def: 1.1, spd: 108, size: 'L', item: 'quickCharm',
+    moves: ['railShot', 'hydroCannon', 'lanceCharge', 'towerShield'], from: 'garrishell' },
+  { id: 'citadrone', name: 'CITADRONE', types: ['water', 'steel'], hp: 1900, atk: 1.28, def: 1.42, spd: 72, size: 'L', item: 'ironPlate',
+    moves: ['droneSwarm', 'hydroCannon', 'magnetStorm', 'ironDefense'], from: 'garrishell' },
+];
+
+// every monster you can field (the arena has no evolving; the legends are their own tier)
+const ALL_MONS = () => [...ROSTER, ...LEGENDS];
+const ROSTER_BY_ID = Object.fromEntries(ALL_MONS().map(m => [m.id, m]));
 
 const DIFFICULTY = {
   easy:   { think: 0.38, dodge: 0.25, aggro: 0.45, react: 0.55, aimErr: 0.28, lead: false, swap: 0 },

@@ -17,7 +17,7 @@ const UI = {
     if (!on) { $('#callouts').innerHTML = ''; $('#banner').className = ''; }
   },
 
-  typeTag(t) { return `<span class="tag" style="background:${TYPES[t].color}">${TYPES[t].name}</span>`; },
+  typeTag(t) { return `<span class="tag" data-tip="type:${t}" style="background:${TYPES[t].color}">${TYPES[t].name}</span>`; },
 
   // ---------------- battle hooks (called by Battle) ----------------
   callout(side, name, type) {
@@ -142,7 +142,7 @@ const UI = {
       const col = TYPES[mv.type].color;
       b.style.background = `linear-gradient(${col}, ${shadeHex(col, -0.25)})`;
       const key = mouse ? `${i >= 2 ? '<b>⇧</b>' : ''}${mouseIcon(i % 2 === 0 ? 'left' : 'right')}` : keys[i];
-      b.title = keys[i].replace('⇧', 'Shift +');
+      b.dataset.tip = 'mv:' + mv.id;
       b.innerHTML = `<span class="key">${key}</span><span class="nm">${mv.name}</span><div class="cd"></div>`;
       b.style.display = 'flex'; b.style.alignItems = 'center'; b.style.justifyContent = 'center';
       Input.bindMoveButton(b, i, p);
@@ -199,7 +199,7 @@ const UI = {
       c.tags = null;
     }
     const tags = mon.def.types.map(t => this.typeTag(t)).join('') +
-      (mon.status ? `<span class="tag status ${mon.status}">${mon.status.toUpperCase()}</span>` : `<span class="tag item">${mon.item.name || ''}</span>`);
+      (mon.status ? `<span class="tag status ${mon.status}" data-tip="status:${mon.status}">${mon.status.toUpperCase()}</span>` : `<span class="tag item" data-tip="item:${mon.def.item}">${mon.item.name || ''}</span>`);
     if (c.tags !== tags) { root.querySelector('.tags').innerHTML = tags; c.tags = tags; }
 
     const pct = mon.hp / mon.maxHp;

@@ -2,8 +2,15 @@
 
 // Shown on the title screen so players can tell whether their browser has the latest
 // build (GitHub Pages lets browsers cache files for up to 10 minutes). Bump on every release.
-const VERSION = '2026.10.18-r22';
+const VERSION = '2026.10.18-r23';
 
+// the legends tier (data.js LEGENDS) on the team screen: off by default, remembered in this browser
+const LEGENDS_KEY = 'mbs.legends.v1';
+let legendsOn = false;
+try { legendsOn = localStorage.getItem(LEGENDS_KEY) === '1'; } catch (e) { /* storage blocked */ }
+const isLegend = id => LEGENDS.some(m => m.id === id);
+// who can be picked (and who the CPU and Random pick from)
+const pickable = () => (legendsOn ? ALL_MONS() : ROSTER);
 const App = {
   mode: '1p',       // '1p' vs the CPU, or '2p' local
   picking: 0,       // which player is choosing a team (2P)
@@ -196,9 +203,9 @@ const curTeam = () => (App.picking === 1 ? App.team2 : App.team);
 function openTeamSelect() {
   const roster = $('#roster');
   if (!roster.children.length) {
-    for (const m of ROSTER) {
+    for (const m of ALL_MONS()) {
       const card = document.createElement('div');
-      card.className = 'card'; card.dataset.id = m.id;
+      card.className = 'card' + (isLegend(m.id) ? ' legend' : ''); card.dataset.id = m.id;
       const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
       drawPortrait(cv, m.id);
       card.appendChild(cv);
@@ -229,12 +236,14 @@ function refreshTeam() {
   document.querySelectorAll('#roster .card').forEach(c => {
     const i = curTeam().indexOf(c.dataset.id);
     c.classList.toggle('sel', i >= 0);
+    c.classList.toggle('hidden', isLegend(c.dataset.id) && !legendsOn);
     c.querySelector('.order').textContent = i >= 0 ? i + 1 : '';
   });
   const team = curTeam();
   const waiting = online() && Online.myTeam;
   $('#team-title').textContent = twoP() ? `Player ${App.picking + 1}: pick your team` : 'Pick your team';
   $('#team-count').textContent = `${team.length}/6`;
+  $('#btn-team-legends').textContent = `Legends: ${legendsOn ? 'On' : 'Off'}`;
   $('#btn-team-go').disabled = team.length === 0 || waiting;
   $('#btn-team-go').textContent = twoP() && App.picking === 0 ? 'NEXT' : waiting ? 'READY' : 'FIGHT!';
   const d = $('#team-detail');
@@ -249,15 +258,16 @@ function refreshTeam() {
     return;
   }
   const m = ROSTER_BY_ID[detailId], p = App.picking, cur = MoveSets.get(p, m.id);
-  const mvBtn = (k, attrs, cls = '') => `<button class="d-move ${cls}" ${attrs} style="background:${TYPES[MOVES[k].type].color}">${MOVES[k].name}<small>${MOVES[k].kind}${MOVES[k].power ? ' ' + MOVES[k].power : ''}</small></button>`;
+  const mvBtn = (k, attrs, cls = '') => `<button class="d-move ${cls}" ${attrs} data-tip="mv:${k}" style="background:${TYPES[MOVES[k].type].color}">${MOVES[k].name}<small>${KIND_NAMES[MOVES[k].kind]}${MOVES[k].power ? ' · ' + MOVES[k].power : ''}</small></button>`;
   let pool = '';
   if (editSlot >= 0) {
     pool = `<div class="d-pool-title">Swap <b>${MOVES[cur[editSlot]].name}</b> for:</div><div class="d-pool">${movePool(m.id).filter(k => k !== cur[editSlot]).map(k => mvBtn(k, `data-mv="${k}"`, cur.includes(k) ? 'used' : '')).join('')}</div>`;
   }
   d.innerHTML = `<canvas width="88" height="88"></canvas><div class="d-body">
     <div class="d-name">${m.name} ${m.types.map(t => UI.typeTag(t)).join(' ')}</div>
-    <div class="d-stats">HP ${m.hp} · ATK ${Math.round(m.atk * 100)} · DEF ${Math.round(m.def * 100)} · SPD ${m.spd} · ${ITEMS[m.item].name}</div>
+    <div class="d-stats">HP ${m.hp} · ATK ${Math.round(m.atk * 100)} · DEF ${Math.round(m.def * 100)} · SPD ${m.spd} · <span class="tipped" data-tip="item:${m.item}">${ITEMS[m.item].name}</span></div>
     <div class="d-moves">${cur.map((k, i) => mvBtn(k, `data-slot="${i}"`, i === editSlot ? 'sel' : '')).join('')}</div>
+    ${editSlot >= 0 ? `<div class="d-mvdesc"><b>${MOVES[cur[editSlot]].name}</b> <span>${moveStats(MOVES[cur[editSlot]])}</span><br>${moveDesc(MOVES[cur[editSlot]])}</div>` : ''}
     <div class="d-tip">${editSlot >= 0 ? 'Pick a move to put in that slot (a dimmed one trades places).' : 'Tap a move to swap it for another one ' + m.name + ' can learn.'}${MoveSets.isDefault(p, m.id) ? '' : ' <button class="d-reset">Default moves</button>'}</div>
     ${pool}</div>`;
   drawPortrait(d.querySelector('canvas'), m.id);
@@ -278,11 +288,21 @@ $('#btn-team-back').onclick = () => {
   if (App.mode === 'online') { Net.leave(); openOnline(); return; }
   UI.show('title');
 };
+// Legends on/off: the evolved starters and Garrishell's altar forms (much stronger, so off by default)
+$('#btn-team-legends').onclick = () => {
+  if (online() && Online.myTeam) return;
+  legendsOn = !legendsOn;
+  try { localStorage.setItem(LEGENDS_KEY, legendsOn ? '1' : '0'); } catch (e) { /* ignore */ }
+  Sfx.play(legendsOn ? 'buff' : 'back');
+  if (!legendsOn) for (const t of [App.team, App.team2]) for (let i = t.length - 1; i >= 0; i--) if (isLegend(t[i])) t.splice(i, 1);
+  if (detailId && isLegend(detailId) && !legendsOn) detailId = null;
+  refreshTeam();
+};
 $('#btn-team-random').onclick = () => {
   if (online() && Online.myTeam) return;
   Sfx.play('select');
   const team = curTeam();
-  team.splice(0, team.length, ...shuffle(ROSTER.map(m => m.id)).slice(0, 6));
+  team.splice(0, team.length, ...shuffle(pickable().map(m => m.id)).slice(0, 6));
   detailId = team[0];
   refreshTeam();
 };
@@ -296,7 +316,7 @@ $('#btn-team-go').onclick = () => {
     return;
   }
   if (twoP() && App.picking === 0) { App.picking = 1; openTeamSelect(); return; }
-  App.enemyTeam = twoP() ? App.team2.slice() : shuffle(ROSTER.map(m => m.id)).slice(0, App.team.length);
+  App.enemyTeam = twoP() ? App.team2.slice() : shuffle(pickable().map(m => m.id)).slice(0, App.team.length);
   startBattle();
 };
 
