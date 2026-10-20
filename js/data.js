@@ -172,7 +172,7 @@ const MOVES = {
   heavySigh:    { name: 'Heavy Sigh', type: 'normal', kind: 'burst', power: 210, cd: 5, r: 70, delay: 0.5, slow: 2.5 },
   blankStare:   { name: 'Blank Stare', type: 'dark', kind: 'beam', power: 300, cd: 5.5, charge: 0.6, dur: 0.6, width: 10, len: 290, fx: 'stare' },
   coffeeBreak:  { name: 'Coffee Break', type: 'normal', kind: 'buff', buff: { spd: 1.6, atk: 1.3 }, dur: 8, cd: 14 },
-  // from Monster Rush (r15): the new monsters' moves
+  // from Deep Archive (r15): the new monsters' moves
   spoutShot:    { name: 'Spout Shot', type: 'water', kind: 'projectile', power: 100, cd: 1.6, speed: 260, r: 4 },
   cuffCannon:   { name: 'Cuff Cannon', type: 'water', kind: 'projectile', power: 150, cd: 2, speed: 270, r: 5 },
   twinCannon:   { name: 'Twin Cannon', type: 'water', kind: 'projectile', power: 95, cd: 2.2, speed: 270, r: 5, count: 2, spread: 0.14 },
@@ -252,7 +252,7 @@ const ROSTER = [
     moves: ['zoomies', 'shibaScream', 'smugBeam', 'blanketNap'] },
   { id: 'mondaze',   name: 'MONDAZE',   types: ['normal', 'dark'], hp: 1220, atk: 1.2, def: 1.15, spd: 70, size: 'M', item: 'powerBand',
     moves: ['deadlineDash', 'heavySigh', 'blankStare', 'coffeeBreak'] },
-  // from Monster Rush (r15); stats tuned here for 1v1 (hard-bot round robin: 56-63% each), Rush's differ
+  // from Deep Archive (r15); stats tuned here for 1v1 (hard-bot round robin: 56-63% each), Deep Archive's differ
   { id: 'voltergeist', name: 'VOLTERGEIST', types: ['electric', 'ghost'], hp: 860, atk: 1.0, def: 0.88, spd: 92, size: 'M', item: 'quickCharm',
     moves: ['discharge', 'shadowBall', 'thunder', 'staticSiphon'] },
   { id: 'coilizard', name: 'COILIZARD', types: ['electric', 'rock'], hp: 1080, atk: 1.04, def: 1.12, spd: 92, size: 'M', item: 'ironPlate',
@@ -269,7 +269,7 @@ const ROSTER = [
     moves: ['twinCannon', 'hydroCannon', 'ironSlam', 'ironDefense'] },
 ];
 
-// The legends tier (team screen, "Legends" on): Monster Rush's evolved starters and Garrishell's
+// The legends tier (team screen, "Legends" on): Deep Archive's evolved starters and Garrishell's
 // altar forms. Much stronger than the regular roster on purpose, so they're off by default.
 // `from` keeps their moves out of other monsters' move pools (movesets.js).
 const LEGENDS = [
