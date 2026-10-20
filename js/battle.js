@@ -389,7 +389,7 @@ class Battle {
     const dir = this.aim(m, foe, mv);
     if (Math.abs(Math.cos(dir)) > 0.2) m.face = Math.cos(dir) > 0 ? 1 : -1;
     m.look(Math.cos(dir), Math.sin(dir));
-    const fx = TYPES[mv.type].fx;
+    const fx = fxOf(mv);
 
     switch (mv.kind) {
       case 'projectile': {
@@ -518,7 +518,7 @@ class Battle {
 
   applyStatus(m, s) {
     if (m.status || m.fainted) return;
-    const immune = { par: ['electric'], brn: ['fire'], frz: ['ice'], psn: ['poison', 'steel'] }[s];
+    const immune = { par: ['electric'], brn: ['fire'], frz: ['ice'], psn: ['glitch', 'metal'] }[s];
     if (m.def.types.some(t => immune.includes(t))) return;
     m.status = s;
     m.statusT = { par: 8, brn: 6, frz: 1.6, psn: 8 }[s];
@@ -611,7 +611,7 @@ class Battle {
         const d = Math.round(m.maxHp * 0.03);
         m.hp = Math.max(0, m.hp - d);
         this.number(m, d, null, '#ffb080', '#c84a1a');
-        this.burst(m.x, m.cy, TYPES.fire.fx, 6, 30, -40);
+        this.burst(m.x, m.cy, FX_STYLES.fire, 6, 30, -40);
         if (m.hp <= 0) { this.faint(m); return; }
       }
       if (m.status === 'psn' && m.statusTick <= 0) {
@@ -619,7 +619,7 @@ class Battle {
         const d = Math.round(m.maxHp * 0.025);
         m.hp = Math.max(0, m.hp - d);
         this.number(m, d, null, '#e8b8ff', '#8a3ab0');
-        this.burst(m.x, m.cy, TYPES.poison.fx, 6, 30, -30);
+        this.burst(m.x, m.cy, FX_STYLES.poison, 6, 30, -30);
         if (m.hp <= 0) { this.faint(m); return; }
       }
       if (m.statusT <= 0) {
@@ -656,7 +656,7 @@ class Battle {
   updateAction(m, dt, foe) {
     const a = m.action;
     a.t += dt;
-    const fx = a.mv ? TYPES[a.mv.type].fx : null;
+    const fx = a.mv ? fxOf(a.mv) : null;
     switch (a.kind) {
       case 'cast':
         if (a.t >= a.dur) m.action = null;
@@ -671,7 +671,7 @@ class Battle {
             const ox = m.x + Math.cos(a.dir) * 8, oy = m.cy + Math.sin(a.dir) * 8;
             this.particles.push({ x: ox + Math.cos(ang) * rr, y: oy + Math.sin(ang) * rr, vx: -Math.cos(ang) * rr * 3, vy: -Math.sin(ang) * rr * 3, life: 0.3, max: 0.3, size: 2, color: fx[Math.random() < 0.5 ? 1 : 2], kind: 'sq' });
           }
-          if (a.t >= mv.charge) { a.phase = 'fire'; a.t = 0; Sfx.beamFire(mv.dur, mv.type); this.addShake(5); }
+          if (a.t >= mv.charge) { a.phase = 'fire'; a.t = 0; Sfx.beamFire(mv.dur, styleOf(mv)); this.addShake(5); }
         } else {
           a.tick -= dt;
           if (a.tick <= 0) {
@@ -823,7 +823,7 @@ class Battle {
         }
       }
       p.x += p.vx * dt; p.y += p.vy * dt;
-      const fx = TYPES[p.mv.type].fx;
+      const fx = fxOf(p.mv);
       if (Math.random() < 0.9) this.particles.push({ x: p.x + rand(-1, 1) * p.r * 0.5, y: p.y + rand(-1, 1) * p.r * 0.5, vx: -p.vx * 0.1, vy: -p.vy * 0.1, life: 0.25, max: 0.25, size: Math.max(1, p.r * 0.6), color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
       if (p.life > 0 && !(p.hitCd > 0) && foe && foe.visible && !foe.fainted && Math.hypot(p.x - foe.x, p.y - foe.cy) < p.r + foe.r) {
         // a boomerang cuts through and can hit again on the way back
@@ -847,7 +847,7 @@ class Battle {
       z.t += dt;
       if (!z.done && z.t >= z.delay) {
         z.done = true; z.tick = 0.5;   // a pool's first tick comes after the landing hit
-        const fx = TYPES[z.mv.type].fx;
+        const fx = fxOf(z.mv);
         if (z.mv.fx === 'bolt') this.particles.push({ x: z.x, y: z.y, life: 0.25, max: 0.25, kind: 'bolt', color: fx[1], seed: Math.random() });
         Sfx.move(z.mv, 'land');
         this.fxBlast(z.x, z.y, z.r * 1.2, z.mv);
@@ -1130,7 +1130,7 @@ class Battle {
         // lingering pool: fades in and out, with bubbles popping across it
         const age = z.t - z.delay, left = z.mv.linger - age;
         const fade = clamp(Math.min(age / 0.15, left / 0.4), 0, 1);
-        const zx = this.sx(z.x), zy = this.sy(z.y), fx = TYPES[z.mv.type].fx;
+        const zx = this.sx(z.x), zy = this.sy(z.y), fx = fxOf(z.mv);
         ctx.globalAlpha = 0.38 * fade; ctx.fillStyle = fx[0];
         ctx.beginPath(); ctx.ellipse(zx, zy, z.r, z.r * 0.7, 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 0.7 * fade; ctx.strokeStyle = fx[1]; ctx.lineWidth = 1.5;
@@ -1144,7 +1144,7 @@ class Battle {
         continue;
       }
       const k = clamp(z.t / z.delay, 0, 1), zx = this.sx(z.x), zy = this.sy(z.y);
-      ctx.fillStyle = TYPES[z.mv.type].fx[0];
+      ctx.fillStyle = fxOf(z.mv)[0];
       ctx.globalAlpha = 0.18 + k * 0.2;
       ctx.beginPath(); ctx.ellipse(zx, zy, z.r * k, z.r * k * 0.7, 0, 0, TAU); ctx.fill();
       ctx.globalAlpha = pulse;
@@ -1159,7 +1159,7 @@ class Battle {
       const X = this.sx(m.x), Y = this.sy(m.y), dir = this.sa(a.dir);
       if (a.kind === 'burst' && !a.done) {
         const k = clamp(a.t / a.mv.delay, 0, 1);
-        ctx.fillStyle = TYPES[a.mv.type].fx[0];
+        ctx.fillStyle = fxOf(a.mv)[0];
         ctx.globalAlpha = 0.15 + k * 0.2;
         ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r * k, a.mv.r * k * 0.7, 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = pulse; ctx.strokeStyle = '#ffffff';
@@ -1178,7 +1178,7 @@ class Battle {
       }
       if (a.kind === 'vortex') {
         // swirling dashed rings marking the pull radius
-        const fx = TYPES[a.mv.type].fx, fade = clamp(Math.min(a.t / 0.12, (a.mv.dur - a.t) / 0.2), 0, 1);
+        const fx = fxOf(a.mv), fade = clamp(Math.min(a.t / 0.12, (a.mv.dur - a.t) / 0.2), 0, 1);
         ctx.globalAlpha = 0.16 * fade; ctx.fillStyle = fx[0];
         ctx.beginPath(); ctx.ellipse(X, Y, a.mv.r, a.mv.r * 0.7, 0, 0, TAU); ctx.fill();
         ctx.lineWidth = 1.5;
@@ -1190,7 +1190,7 @@ class Battle {
         ctx.setLineDash([]); ctx.lineDashOffset = 0;
       }
       if (a.kind === 'dash' && a.t <= 0.1) {
-        ctx.globalAlpha = 0.5; ctx.strokeStyle = TYPES[a.mv.type].fx[2];
+        ctx.globalAlpha = 0.5; ctx.strokeStyle = fxOf(a.mv)[2];
         ctx.beginPath(); ctx.moveTo(X, Y);
         ctx.lineTo(X + Math.cos(dir) * 40, Y + Math.sin(dir) * 40); ctx.stroke();
       }
@@ -1202,7 +1202,7 @@ class Battle {
     for (const z of this.zones) {
       if (z.done) continue;
       const left = z.delay - z.t;
-      const fx = TYPES[z.mv.type].fx;
+      const fx = fxOf(z.mv);
       const zx = this.sx(z.x), zy = this.sy(z.y);   // things still fall down the screen
       if (z.mv.fx === 'meteor' && left < 0.45) {
         const k = 1 - left / 0.45;
@@ -1223,7 +1223,7 @@ class Battle {
   }
 
   drawBeamFlat(ctx, m, a) {
-    const mv = a.mv, fx = TYPES[mv.type].fx;
+    const mv = a.mv, fx = fxOf(mv);
     // the muzzle sits at body height, 6 units out along the aim
     const ox = this.sx(m.x + Math.cos(a.dir) * 6), oy = this.sy(m.cy + Math.sin(a.dir) * 6, m.y - m.cy);
     if (a.phase === 'charge') {
@@ -1268,7 +1268,7 @@ class Battle {
   }
 
   drawProjectileFlat(ctx, p) {
-    const fx = TYPES[p.mv.type].fx, t = p.mv.type;
+    const fx = fxOf(p.mv), t = styleOf(p.mv);
     const px = this.sx(p.x), py = this.sy(p.y, p.k ?? 19);
     if (p.mv.boomerang) {   // a spinning crescent blade
       ctx.save(); ctx.translate(px, py); ctx.rotate(p.spin * 1.7);
