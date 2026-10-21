@@ -243,7 +243,7 @@ const ROSTER = [
     moves: ['megaBeam', 'bodySlam', 'heavyStomp', 'snack'] },
   { id: 'frostling', name: 'FROSTLING', types: ['ice'],      hp: 960,  atk: 1.1,  def: 0.92, spd: 96,  size: 'M', item: 'quickCharm',
     moves: ['iceShard', 'frostRay', 'blizzard', 'frostArmor'] },
-  { id: 'drakorn',   name: 'DRAKORN',   types: ['dragonkin', 'arcane'], hp: 1200, atk: 1.2,  def: 1.0,  spd: 88,  size: 'L', item: 'powerBand',
+  { id: 'drakorn',   name: 'NYXDRAKE',   types: ['dragonkin', 'arcane'], hp: 1200, atk: 1.2,  def: 1.0,  spd: 88,  size: 'L', item: 'powerBand',
     moves: ['dragonPulse', 'dragonClaw', 'starfall', 'dragonDance'] },
   { id: 'boulderon', name: 'BOULDERON', types: ['earth'], hp: 1420, atk: 1.15, def: 1.38, spd: 55, size: 'L', item: 'ironPlate',
     moves: ['rockSlide', 'quicksand', 'rollout', 'quake'] },
