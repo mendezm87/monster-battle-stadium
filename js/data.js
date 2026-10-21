@@ -295,6 +295,9 @@ const ROSTER = [
 const LEGENDS = [
   { id: 'smugshogun', name: 'SMUGSHOGUN', types: ['beast', 'arcane'], hp: 1360, atk: 1.32, def: 1.1, spd: 114, size: 'L', item: 'snackPouch',
     moves: ['zoomiesMax', 'shibaRoar', 'supremeSmug', 'blanketNap'], from: 'smugshi' },
+  // Daimochi (Deep Archive r116): Smugshi's other grown-up form there, a chubby samurai; stats tuned here for 1v1
+  { id: 'daimochi', name: 'DAIMOCHI', types: ['beast', 'brawl'], hp: 1620, atk: 1.24, def: 1.28, spd: 96, size: 'L', item: 'snackPouch',
+    moves: ['bodySlam', 'shibaRoar', 'closeCombat', 'snack'], from: 'smugshi' },
   { id: 'infernox', name: 'INFERNOX', types: ['fire', 'earth'], hp: 1400, atk: 1.26, def: 1.15, spd: 90, size: 'L', item: 'emberStone',
     moves: ['blazeRush', 'infernoBeam', 'fireBlast', 'magmaQuake'], from: 'cinderox' },
   { id: 'maelstrisk', name: 'MAELSTRISK', types: ['water', 'arcane'], hp: 1560, atk: 1.16, def: 1.22, spd: 88, size: 'L', item: 'mysticDrop',
