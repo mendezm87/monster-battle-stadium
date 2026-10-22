@@ -715,7 +715,7 @@ class Battle {
         m.ghostT -= dt;
         if (m.ghostT <= 0) { m.ghostT = DASH_ART[a.mv.id] ? 0.11 : 0.075; m.ghosts.push({ x: m.x, y: m.y, face: m.face, view: m.view, t: 0.22, color: fx[1] }); }
         if (Math.random() < 0.7) this.particles.push({ x: m.x + rand(-6, 6), y: m.cy + rand(-6, 6), vx: -m.vx * 0.2, vy: -m.vy * 0.2, life: 0.3, max: 0.3, size: 2, color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
-        if (!DASH_ART[a.mv.id] && Math.random() < 0.6) this.particles.push({ kind: 'streak', x: m.x + rand(-9, 9), y: m.cy + rand(-9, 9), sx: m.vx, sy: m.vy, color: fx[2], life: 0.16, max: 0.16 });
+        if (!DASH_ART[a.mv.id] && !SHEET_MOVES[a.mv.id] && Math.random() < 0.6) this.particles.push({ kind: 'streak', x: m.x + rand(-9, 9), y: m.cy + rand(-9, 9), sx: m.vx, sy: m.vy, color: fx[2], life: 0.16, max: 0.16 });
         if (!a.hit && Math.hypot(m.x - foe.x, m.cy - foe.cy) < m.r + foe.r + 4) {
           a.hit = true;
           if (mv.hits > 1) {   // a combo: stop here and start hitting
