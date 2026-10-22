@@ -712,9 +712,9 @@ class Battle {
         }
         if (a.t <= 0.1) { if (a.t < 0.03) a.dir = this.aim(m, foe, mv); break; }
         m.ghostT -= dt;
-        if (m.ghostT <= 0) { m.ghostT = 0.03; m.ghosts.push({ x: m.x, y: m.y, face: m.face, view: m.view, t: 0.22, color: fx[1] }); }
+        if (m.ghostT <= 0) { m.ghostT = DASH_ART[a.mv.id] ? 0.11 : 0.075; m.ghosts.push({ x: m.x, y: m.y, face: m.face, view: m.view, t: 0.22, color: fx[1] }); }
         if (Math.random() < 0.7) this.particles.push({ x: m.x + rand(-6, 6), y: m.cy + rand(-6, 6), vx: -m.vx * 0.2, vy: -m.vy * 0.2, life: 0.3, max: 0.3, size: 2, color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
-        if (Math.random() < 0.6) this.particles.push({ kind: 'streak', x: m.x + rand(-9, 9), y: m.cy + rand(-9, 9), sx: m.vx, sy: m.vy, color: fx[2], life: 0.16, max: 0.16 });
+        if (!DASH_ART[a.mv.id] && Math.random() < 0.6) this.particles.push({ kind: 'streak', x: m.x + rand(-9, 9), y: m.cy + rand(-9, 9), sx: m.vx, sy: m.vy, color: fx[2], life: 0.16, max: 0.16 });
         if (!a.hit && Math.hypot(m.x - foe.x, m.cy - foe.cy) < m.r + foe.r + 4) {
           a.hit = true;
           if (mv.hits > 1) {   // a combo: stop here and start hitting
@@ -1079,7 +1079,7 @@ class Battle {
 
     // dash afterimages
     for (const g of m.ghosts) {
-      ctx.globalAlpha = (g.t / 0.22) * 0.5 * alpha;
+      ctx.globalAlpha = (g.t / 0.22) * 0.3 * alpha;
       ctx.save(); ctx.translate(Math.round(this.sx(g.x)), Math.round(this.sy(g.y))); if ((this.flip ? -g.face : g.face) < 0) ctx.scale(-1, 1);
       ctx.drawImage(tinted(m.id, g.color, this.viewOf(g.view)), -S / 2, -S + 3, S, S); ctx.restore();
     }
@@ -1103,7 +1103,7 @@ class Battle {
     const dx = -pw / 2, dy = 3 - ph;
     ctx.drawImage(pic, dx, dy, pw, ph);
     let tint = null, ta = 0;
-    if (m.flash > 0) { tint = '#ffffff'; ta = Math.min(1, m.flash * 8); }
+    if (m.flash > 0) { tint = '#ffffff'; ta = Math.min(0.45, m.flash * 3.5); }   // a hit flash you can still see the monster through
     else if (m.fainted) { tint = '#ffffff'; ta = Math.min(0.8, m.fadeT); }
     else if (m.status === 'frz') { tint = '#9fe6ff'; ta = 0.55; }
     else if (m.status === 'par' && Math.sin(this.time * 18) > 0.6) { tint = '#ffe24a'; ta = 0.45; }
