@@ -711,6 +711,7 @@ class Battle {
           break;
         }
         if (a.t <= 0.1) { if (a.t < 0.03) a.dir = this.aim(m, foe, mv); break; }
+        this.fxDashTrail(m, a, dt);    // bits of its look flying off (fx.js)
         m.ghostT -= dt;
         if (m.ghostT <= 0) { m.ghostT = DASH_ART[a.mv.id] ? 0.11 : 0.075; m.ghosts.push({ x: m.x, y: m.y, face: m.face, view: m.view, t: 0.22, color: fx[1] }); }
         if (Math.random() < 0.7) this.particles.push({ x: m.x + rand(-6, 6), y: m.cy + rand(-6, 6), vx: -m.vx * 0.2, vy: -m.vy * 0.2, life: 0.3, max: 0.3, size: 2, color: fx[rand() < 0.5 ? 0 : 1], kind: 'sq' });
@@ -956,6 +957,7 @@ class Battle {
       p.life -= dt;
       if (p.vx !== undefined) {
         if (p.drag) { p.vx *= Math.exp(-p.drag * dt); p.vy *= Math.exp(-p.drag * dt); }
+        if (p.grav) p.vy += p.grav * dt;   // bits that fall (or rise, if negative)
         p.x += p.vx * dt; p.y += p.vy * dt;
       }
     }
