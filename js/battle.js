@@ -996,6 +996,7 @@ class Battle {
       // attacks and effects: chunky pixel art in their own layer (see fx.js)
       this.drawAttacks(FXLayer.begin(-shx, -shy));
       FXLayer.end(ctx);
+      drawScreenFlash(ctx, this);
     } else {
       // the online guest's turned-round view still uses the simpler effects (fx.js draws in world space)
       for (const m of [this.P, this.E]) if (m.action && m.action.kind === 'beam' && m.visible) this.drawBeamFlat(ctx, m, m.action);
