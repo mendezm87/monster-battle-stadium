@@ -487,7 +487,7 @@ class Battle {
     const force = opts.force ?? (mult < 1 ? 22 : Math.min(260, 60 + dmg * 0.45));
     tgt.kx += Math.cos(kb) * force; tgt.ky += Math.sin(kb) * force;
 
-    this.fxImpact(tgt, mv, dmg, eff, mult, src);
+    this.fxImpact(tgt, mv, dmg, eff, mult, src, crit);
     if (mult >= 1 || fresh) this.sparks(tgt.x, tgt.cy, mult < 1 ? 2 : 6);
     if (fresh) {
       if (eff >= 2) this.text(tgt.x, tgt.y - tgt.h - 12, 'SUPER EFFECTIVE!', '#ffe066', tgt.y);
