@@ -2,7 +2,7 @@
 
 // Shown on the title screen so players can tell whether their browser has the latest
 // build (GitHub Pages lets browsers cache files for up to 10 minutes). Bump on every release.
-const VERSION = '2026.10.25-r142';
+const VERSION = '2026.10.25-r143';
 
 // the legends tier (data.js LEGENDS) on the team screen: off by default, remembered in this browser
 const LEGENDS_KEY = 'mbs.legends.v1';
